@@ -1,4 +1,6 @@
 from datetime import datetime
+
+import email
 import json
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -16,7 +18,7 @@ def api_cadastro(request):
     nome = request.data.get('nome')
     senha = request.data.get('senha')
     tipo_usuario = request.data.get('tipo_usuario')
-    email = request.data.get('email')
+    email = request.data.get('email')  # noqa: F811
     telefone = request.data.get('telefone')
     cpf = request.data.get('cpf')
 
@@ -67,16 +69,16 @@ def api_cadastro(request):
 
 @api_view(['POST'])
 def api_login(request):
-    nome = request.data.get('nome')
+    email = request.data.get('email')
     senha = request.data.get('senha')
     tipo_usuario = request.data.get('tipo_usuario')
 
-    if not nome or not senha or not tipo_usuario:
-        return Response({'success': False, 'message': 'Nome e senha tipo_usuario são obrigatórios.'}, status=400)
+    if not email or not senha or not tipo_usuario:
+        return Response({'success': False, 'message': 'email e senha tipo_usuario são obrigatórios.'}, status=400)
 
     try:
 
-        usuario = Usuario.objects.get(nome=nome, tipo_usuario=tipo_usuario)
+        usuario = Usuario.objects.get(email=email, tipo_usuario=tipo_usuario)
         if usuario.senha == senha:  # ⚠️ Sempre recomendo usar hash na senha
             return Response({
                 'success': True,
@@ -178,15 +180,15 @@ def cadastro_funcionario(request):
 
 @api_view(['POST'])
 def login_funcionario(request):
-    nome = request.data.get('nome')
+    email = request.data.get('email')
     senha = request.data.get('senha')
     tipo_usuario = request.data.get('tipo_usuario')
 
-    if not nome or not senha:
-        return Response({'success': False, 'message': 'Nome e senha são obrigatórios.'}, status=400)
+    if not email or not senha:
+        return Response({'success': False, 'message': 'Email e senha são obrigatórios.'}, status=400)
 
     try:
-        usuario = Usuario.objects.get(nome=nome, tipo_usuario=tipo_usuario)
+        usuario = Usuario.objects.get(nome=email, tipo_usuario=tipo_usuario)
 
         if senha == usuario.senha:  # Verificação direta sem hash
             funcionario = Funcionario.objects.get(usuario=usuario)

@@ -16,6 +16,7 @@ TIPOS = (
 
 
 class Usuario(models.Model):
+    usuario_name = models.CharField(max_length=50, unique=True)
     nome = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     senha = models.CharField(max_length=128)
@@ -73,6 +74,7 @@ UF = (
 class Funcionario(models.Model):
     id_funcionario = models.AutoField(primary_key=True)
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, null=True, blank=True)
+    nome = models.CharField(max_length=100, null=True, blank=True)
     cargo = models.CharField(max_length=100, choices=CARGO)
     dt_admissao = models.DateField()
     dt_nascimento = models.DateField()
