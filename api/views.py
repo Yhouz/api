@@ -1,6 +1,6 @@
 from datetime import datetime
 
-import email
+
 import json
 from rest_framework import status
 from rest_framework.decorators import api_view
