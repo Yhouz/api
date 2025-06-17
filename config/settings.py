@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-import os 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,9 +23,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-fd_cs#2m%^sqv8dk%^2*bgkw%#zvylmy=ymph!zt@wjyp=psuk'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# Set to False for production! For initial deployment, keeping True is okay,
+# but remember to change it.
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# --- FIX FOR DisallowedHost ERROR ---
+# Add your Render.com domain here.
+# It's highly recommended to use an environment variable for production.
+# Render automatically sets RENDER_EXTERNAL_HOSTNAME.
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ.get('RENDER_EXTERNAL_HOSTNAME'))
+# The specific domain from your logs:
+# ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'api-a35y.onrender.com'] # Alternative for quick test
+# --- END FIX ---
 
 
 # Application definition
@@ -37,23 +48,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
-    'corsheaders',
-    'api',
-
-
+    'rest_framework',      # Make sure this is here
+    'corsheaders',         # Make sure this is here
+    'api',                 # Your custom app
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # Adicione esta linha (primeiro ou bem no início)
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # Placed high up for CORS to work correctly
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -78,23 +86,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-#DATABASES = {
-  #  'default': {
-   #     'ENGINE': 'django.db.backends.postgresql',
-    #    'NAME': 'unilanches',
-     #   'USER': 'postgres',  # 🔥 Verifique este campo!
-      #  'PASSWORD': '142536',  # 🔥 Verifique este campo!
-       # 'HOST': 'localhost',
-        #'PORT': '5432',
-  #  }
-#}
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'neondb',
         'USER': 'neondb_owner',
-        'PASSWORD': 'npg_BmY8VfO7KPDN',  # Clique no olho (Show Password) no Neon para ver a senha real
+        'PASSWORD': 'npg_BmY8VfO7KPDN',
         'HOST': 'ep-plain-tooth-a8stnpvb-pooler.eastus2.azure.neon.tech',
         'PORT': '5432',
         'OPTIONS': {
@@ -104,9 +101,8 @@ DATABASES = {
 }
 
 
-
 # Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -140,19 +136,29 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+# You may need to define STATIC_ROOT for collecting static files in production
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# --- CORS HEADERS SETTINGS ---
+# Set CORS_ALLOW_ALL_ORIGINS to True for development/testing, but be more specific in production.
 CORS_ALLOW_ALL_ORIGINS = True
 
-INSTALLED_APPS = [
-    # outras apps
-    'rest_framework',
-    'corsheaders', # Adicione esta linha
-]
+# If you prefer to explicitly list allowed origins (e.g., for Flutter Web):
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:50684", # Verifique a porta exata no seu terminal Flutter
+#     "http://127.0.0.1:50684",
+#     "http://localhost:63713",
+#     # Adicione quaisquer outras origens onde seu Flutter Web pode estar rodando
+#     # Ex: "https://your-flutter-web-domain.com"
+# ]
+# --- END CORS HEADERS SETTINGS ---
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
@@ -160,30 +166,9 @@ REST_FRAMEWORK = {
         # pode adicionar JWT ou outros depois
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # para testar livre, mude depois para mais segurança
+        'rest_framework.permissions.AllowAny', # para testar livre, mude depois para mais segurança
     ],
 }
-INSTALLED_APPS = [
-    'django.contrib.admin',        # ESSA LINHA É IMPORTANTE
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    # suas apps aqui
-    'rest_framework',
-    'api'            # se estiver usando DRF
-    # outras apps...
-]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-CORS_ALLOW_ALL_ORIGINS = True
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:50684", # Verifique a porta exata no seu terminal Flutter
-    "http://127.0.0.1:50684",
-    "http://localhost:63713",
-    # Adicione quaisquer outras origens onde seu Flutter Web pode estar rodando
-    # Ex: "http://your-flutter-web-domain.com"
-]
