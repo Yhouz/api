@@ -99,6 +99,7 @@ class Produto(models.Model):
     unidade = models.CharField(max_length=10, null=True, blank=True)
 
     imagem = models.ImageField(upload_to='produtos/', blank=True, null=True)
+   
     
 
     def __str__(self):

@@ -183,3 +183,10 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+
+# Defina a URL base para arquivos de mídia
+MEDIA_URL = '/media/'
+
+# Defina o diretório onde os arquivos de mídia serão salvos
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
