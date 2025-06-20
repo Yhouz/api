@@ -490,7 +490,7 @@ def deletar_cardapio(request, id):
     cardapio.delete()
     return Response({'success': True, 'message': 'Cardápio deletado com sucesso.'}, status=status.HTTP_204_NO_CONTENT)
 
-@api_view(['PUT', 'PATCH'])
+@api_view(['POST'])
 def recuperar_senha(request):
     email = request.data.get('email')
     nova_senha = request.data.get('nova_senha')
