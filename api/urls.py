@@ -12,6 +12,7 @@ urlpatterns = [
     path('cadastro/', api_cadastro, name='api_cadastro'),
     path('login-funcionario/', login_funcionario, name='login_funcionario'),
     path('cadastro-funcionario/', cadastro_funcionario, name='cadastro_funcionario'),
+    path('recuperar-senha/', api_cadastro, name='recuperar_senha'),  # Supondo que a mesma view trate o cadastro e recuperação de senha
     
     # Produtos
     path('produtos/cadastrar/', cadastro_produto),
