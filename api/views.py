@@ -500,7 +500,7 @@ def recuperar_senha(request):
 
     try:
         usuario = Usuario.objects.get(email=email)
-        usuario.senha = nova_senha  # ⚠️ Sempre recomendo usar hash na senha
+        usuario.senha = nova_senha  # ⚠️ Aqui você está alterando diretamente o campo senha
         usuario.save()
         return Response({'success': True, 'message': 'Senha atualizada com sucesso.'})
     except Usuario.DoesNotExist:

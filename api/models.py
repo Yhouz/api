@@ -5,8 +5,7 @@
 
 
 
-from ast import mod
-import email
+
 from django.db import models
 
 
