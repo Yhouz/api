@@ -5,6 +5,8 @@
 
 
 
+from ast import mod
+import email
 from django.db import models
 
 
@@ -138,3 +140,6 @@ class Cardapio(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.data})"
+    
+
+

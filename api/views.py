@@ -489,3 +489,19 @@ def deletar_cardapio(request, id):
     cardapio = get_object_or_404(Cardapio, id=id)
     cardapio.delete()
     return Response({'success': True, 'message': 'Cardápio deletado com sucesso.'}, status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['PUT', 'PATCH'])
+def recuperar_senha(request):
+    email = request.data.get('email')
+    nova_senha = request.data.get('nova_senha')
+
+    if not email or not nova_senha:
+        return Response({'success': False, 'message': 'Email e nova senha são obrigatórios.'}, status=400)
+
+    try:
+        usuario = Usuario.objects.get(email=email)
+        usuario.senha = nova_senha  # ⚠️ Sempre recomendo usar hash na senha
+        usuario.save()
+        return Response({'success': True, 'message': 'Senha atualizada com sucesso.'})
+    except Usuario.DoesNotExist:
+        return Response({'success': False, 'message': 'Usuário não encontrado.'}, status=404)
