@@ -522,3 +522,83 @@ def recuperar_senha(request):
         # Capture outras exceções para depuração
         print(f"Erro inesperado ao tentar recuperar senha: {e}")
         return Response({'success': False, 'message': 'Erro interno do servidor.'}, status=500)
+
+
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import Carrinho, ItemCarrinho, Produto, Usuario
+from .serializers import CarrinhoSerializer, ItemCarrinhoSerializer
+
+# -------------------------------
+# CARRINHO
+# -------------------------------
+
+@api_view(['GET', 'POST'])
+def carrinho_list_create(request):
+    if request.method == 'GET':
+        carrinhos = Carrinho.objects.all()
+        serializer = CarrinhoSerializer(carrinhos, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = CarrinhoSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def carrinho_detail(request, pk):
+    try:
+        carrinho = Carrinho.objects.get(pk=pk)
+    except Carrinho.DoesNotExist:
+        return Response({'erro': 'Carrinho não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = CarrinhoSerializer(carrinho)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = CarrinhoSerializer(carrinho, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        carrinho.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# -------------------------------
+# ITEM DO CARRINHO
+# -------------------------------
+
+@api_view(['POST'])
+def adicionar_item_carrinho(request):
+    serializer = ItemCarrinhoSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'DELETE'])
+def item_carrinho_detail(request, pk):
+    try:
+        item = ItemCarrinho.objects.get(pk=pk)
+    except ItemCarrinho.DoesNotExist:
+        return Response({'erro': 'Item do carrinho não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'PUT':
+        serializer = ItemCarrinhoSerializer(item, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

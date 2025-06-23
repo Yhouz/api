@@ -6,6 +6,7 @@
 
 
 
+
 from django.db import models
 
 
@@ -139,6 +140,37 @@ class Cardapio(models.Model):
 
     def __str__(self):
         return f"{self.nome} ({self.data})"
-    
+
+#Carrinho de Compras
+
+class Carrinho(models.Model):
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='carrinhos')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+    finalizado = models.BooleanField(default=False)  # Para saber se já virou um pedido
+
+    def __str__(self):
+        return f"Carrinho de {self.usuario.nome} - {self.criado_em.strftime('%d/%m/%Y %H:%M')}"
+
+    def total_itens(self):
+        return sum(item.quantidade for item in self.itens.all())
+
+    def total_valor(self):
+        return sum(item.subtotal() for item in self.itens.all())
+
+
+class ItemCarrinho(models.Model):
+    carrinho = models.ForeignKey(Carrinho, on_delete=models.CASCADE, related_name='itens')
+    produto = models.ForeignKey(Produto, on_delete=models.CASCADE)
+    quantidade = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.produto.nome}"
+
+    def subtotal(self):
+        return self.quantidade * self.produto.preco
+
+
+
 
 

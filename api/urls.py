@@ -4,7 +4,8 @@ from .views import (
     buscar_produto, cadastrar_cardapio, deletar_cardapio, deletar_produto, editar_cardapio, editar_produto, cadastro_produto,
     cadastro_funcionario, login_funcionario,
     listar_fornecedores, criar_fornecedor, detalhar_fornecedor,
-    editar_fornecedor, deletar_fornecedor,recuperar_senha,
+    editar_fornecedor, deletar_fornecedor,recuperar_senha,carrinho_list_create, carrinho_detail,
+    adicionar_item_carrinho, item_carrinho_detail
 )
 
 urlpatterns = [
@@ -34,4 +35,10 @@ urlpatterns = [
     path('cardapios/cadastrar/', cadastrar_cardapio, name='cadastrar_cardapio'),
     path('cardapios/<int:id>/editar/', editar_cardapio, name='editar_cardapio'),
     path('cardapios/<int:id>/deletar/', deletar_cardapio, name='deletar_cardapio'),
+
+    # Carrinho de Compras
+    path('carrinhos/', carrinho_list_create, name='carrinho_list_create'),
+    path('carrinhos/<int:pk>/', carrinho_detail, name='carrinho_detail'),
+    path('itens_carrinho/', adicionar_item_carrinho, name='adicionar_item_carrinho'),
+    path('itens_carrinho/<int:pk>/', item_carrinho_detail, name='item_carrinho_detail'),
 ]

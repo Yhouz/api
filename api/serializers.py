@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cardapio, Usuario, Funcionario, Produto, Fornecedor
+from .models import Cardapio, Carrinho, ItemCarrinho, Usuario, Funcionario, Produto, Fornecedor
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -77,3 +77,37 @@ class CardapioSerializer(serializers.ModelSerializer):
     #     cardapio = Cardapio.objects.create(**validated_data)
     #     cardapio.produtos.set(produtos_data) # produtos_data já são os objetos Produto
     #     return cardapio
+
+class ItemCarrinhoSerializer(serializers.ModelSerializer):
+    produto = ProdutoSerializer(read_only=True)
+    produto_id = serializers.PrimaryKeyRelatedField(
+        queryset=Produto.objects.all(),
+        source='produto',
+        write_only=True
+    )
+
+    subtotal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemCarrinho
+        fields = ['id', 'carrinho', 'produto', 'produto_id', 'quantidade', 'subtotal']
+        read_only_fields = ['id', 'subtotal']
+
+    def get_subtotal(self, obj):
+        return obj.subtotal()
+
+class CarrinhoSerializer(serializers.ModelSerializer):
+    itens = ItemCarrinhoSerializer(many=True, read_only=True)
+    total_itens = serializers.SerializerMethodField()
+    total_valor = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Carrinho
+        fields = ['id', 'usuario', 'criado_em', 'atualizado_em', 'finalizado', 'itens', 'total_itens', 'total_valor']
+        read_only_fields = ['id', 'criado_em', 'atualizado_em', 'total_itens', 'total_valor']
+
+    def get_total_itens(self, obj):
+        return obj.total_itens()
+
+    def get_total_valor(self, obj):
+        return obj.total_valor()
