@@ -494,6 +494,8 @@ def deletar_cardapio(request, id):
 
 @api_view(['POST'])
 def recuperar_senha(request):
+    print(f"Dados recebidos na requisição: {request.data}") # <-- ADICIONE ESTA LINHA AQUI
+    email = request.data.get('email')
     email = request.data.get('email')
     nova_senha = request.data.get('nova_senha')
 
@@ -501,8 +503,8 @@ def recuperar_senha(request):
         return Response({'success': False, 'message': 'Email e nova senha são obrigatórios.'}, status=400)
 
     # Adicionar validações de senha aqui (ex: comprimento mínimo)
-    if len(nova_senha) < 8: # Exemplo de validação de comprimento
-        return Response({'success': False, 'message': 'A nova senha deve ter no mínimo 8 caracteres.'}, status=400)
+   # if len(nova_senha) : # Exemplo de validação de comprimento
+    #    return Response({'success': False, 'message': 'A nova senha deve ter no mínimo 8 caracteres.'}, status=400)
     # Adicione outras validações de complexidade conforme necessário
 
     try:
