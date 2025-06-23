@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404
 
 
 from .models import Cardapio, Funcionario, Usuario, Produto, Fornecedor
-from django.contrib.auth.hashers import make_password # Importe make_password
+
 
 
 
@@ -512,7 +512,7 @@ def recuperar_senha(request):
 
         # 🟢 CORREÇÃO CRÍTICA: Use make_password para hash a senha
         # antes de atribuir ao campo 'senha'
-        usuario.senha = make_password(nova_senha)
+        usuario.senha = nova_senha
         usuario.save()
 
         return Response({'success': True, 'message': 'Senha atualizada com sucesso.'})
