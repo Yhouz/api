@@ -7,6 +7,11 @@ from .views import (
     editar_fornecedor, deletar_fornecedor,recuperar_senha,carrinho_list_create, carrinho_detail,
     adicionar_item_carrinho, item_carrinho_detail
 )
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+
 
 urlpatterns = [
     path('login/', api_login, name='api_login'),
@@ -14,6 +19,7 @@ urlpatterns = [
     path('login-funcionario/', login_funcionario, name='login_funcionario'),
     path('cadastro-funcionario/', cadastro_funcionario, name='cadastro_funcionario'),
     path('recuperar-senha/', recuperar_senha, name='recuperar_senha'),  # Supondo que a mesma view trate o cadastro e recuperação de senha
+    
     
     # Produtos
     path('produtos/cadastrar/', cadastro_produto),
@@ -41,4 +47,8 @@ urlpatterns = [
     path('carrinhos/<int:pk>/', carrinho_detail, name='carrinho_detail'),
     path('itens_carrinho/', adicionar_item_carrinho, name='adicionar_item_carrinho'),
     path('itens_carrinho/<int:pk>/', item_carrinho_detail, name='item_carrinho_detail'),
+
+    # JWT Token Endpoints
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

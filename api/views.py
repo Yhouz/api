@@ -9,6 +9,7 @@ from .serializers import CardapioSerializer, CarrinhoSerializer, ItemCarrinhoSer
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 
@@ -79,27 +80,33 @@ def api_login(request):
     tipo_usuario = request.data.get('tipo_usuario')
 
     if not email or not senha or not tipo_usuario:
-        return Response({'success': False, 'message': 'email e senha tipo_usuario são obrigatórios.'}, status=400)
+        return Response({'success': False, 'message': 'Email, senha e tipo_usuario são obrigatórios.'}, status=400)
 
     try:
-
         usuario = Usuario.objects.get(email=email, tipo_usuario=tipo_usuario)
-        if usuario.senha == senha:  # ⚠️ Sempre recomendo usar hash na senha
-            return Response({
-                'success': True,
-                'usuario': {
-                    'id': usuario.id,
-                    'nome': usuario.nome,
-                    'email': usuario.email,
-                    'cpf': usuario.cpf,
-                    'telefone': usuario.telefone,
-                    'tipo_usuario': usuario.tipo_usuario,
-                    'saldo_carteira': str(usuario.saldo_carteira),
-                    'data_cadastro': usuario.data_cadastro
-                }
-            })
-        else:
+
+        if usuario.senha != senha:
             return Response({'success': False, 'message': 'Senha incorreta.'}, status=401)
+
+        # ✅ Gerar o token JWT
+        refresh = RefreshToken.for_user(usuario)
+
+        return Response({
+            'success': True,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'usuario': {
+                'id': usuario.id,
+                'nome': usuario.nome,
+                'email': usuario.email,
+                'cpf': usuario.cpf,
+                'telefone': usuario.telefone,
+                'tipo_usuario': usuario.tipo_usuario,
+                'saldo_carteira': str(usuario.saldo_carteira),
+                'data_cadastro': usuario.data_cadastro
+            }
+        })
+
     except Usuario.DoesNotExist:
         return Response({'success': False, 'message': 'Usuário não encontrado.'}, status=404)
 # FUNCIONARIO
@@ -161,8 +168,12 @@ def cadastro_funcionario(request):
     )
     funcionario.save()
 
+    refresh = RefreshToken.for_user(usuario)
+
     return Response({
         'success': True,
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
         'message': 'Funcionário cadastrado com sucesso.',
         'funcionario': {
             'id_funcionario': funcionario.id_funcionario,
@@ -531,7 +542,7 @@ def recuperar_senha(request):
 # -------------------------------
 
 @api_view(['GET', 'POST'])
-#@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def carrinho_list_create(request):
     if request.method == 'GET':
         # Filtrar só os carrinhos do usuário logado
@@ -552,7 +563,7 @@ def carrinho_list_create(request):
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
-#@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def carrinho_detail(request, pk):
     try:
         carrinho = Carrinho.objects.get(pk=pk)
@@ -584,7 +595,7 @@ def carrinho_detail(request, pk):
 # -------------------------------
 
 @api_view(['POST'])
-#@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def adicionar_item_carrinho(request):
     carrinho_id = request.data.get('carrinho')
     if not carrinho_id:
@@ -611,7 +622,7 @@ def adicionar_item_carrinho(request):
 
 
 @api_view(['PUT', 'DELETE'])
-#@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def item_carrinho_detail(request, pk):
     try:
         item = ItemCarrinho.objects.get(pk=pk)
