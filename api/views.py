@@ -7,6 +7,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .serializers import CardapioSerializer, CarrinhoSerializer, ItemCarrinhoSerializer, ProdutoSerializer, FornecedorSerializer
 from django.shortcuts import get_object_or_404
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
 
 
 
@@ -529,26 +531,37 @@ def recuperar_senha(request):
 # -------------------------------
 
 @api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def carrinho_list_create(request):
     if request.method == 'GET':
-        carrinhos = Carrinho.objects.all()
+        # Filtrar só os carrinhos do usuário logado
+        carrinhos = Carrinho.objects.filter(usuario=request.user)
         serializer = CarrinhoSerializer(carrinhos, many=True)
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        serializer = CarrinhoSerializer(data=request.data)
+        # Forçar que o carrinho seja criado para o usuário autenticado
+        data = request.data.copy()
+        data['usuario'] = request.user.id
+        serializer = CarrinhoSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 @api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
 def carrinho_detail(request, pk):
     try:
         carrinho = Carrinho.objects.get(pk=pk)
     except Carrinho.DoesNotExist:
         return Response({'erro': 'Carrinho não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Proteção: só o dono pode acessar
+    if carrinho.usuario != request.user:
+        return Response({'erro': 'Acesso negado. Você não é dono deste carrinho.'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'GET':
         serializer = CarrinhoSerializer(carrinho)
@@ -571,22 +584,43 @@ def carrinho_detail(request, pk):
 # -------------------------------
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def adicionar_item_carrinho(request):
+    carrinho_id = request.data.get('carrinho')
+    if not carrinho_id:
+        return Response({'erro': 'ID do carrinho é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        carrinho = Carrinho.objects.get(id=carrinho_id)
+    except Carrinho.DoesNotExist:
+        return Response({'erro': 'Carrinho não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Proteção: só o dono pode adicionar itens ao próprio carrinho
+    if carrinho.usuario != request.user:
+        return Response({'erro': 'Você não tem permissão para adicionar itens neste carrinho.'}, status=status.HTTP_403_FORBIDDEN)
+
     serializer = ItemCarrinhoSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    print('Erro no serializer:', serializer.errors)  # <-- Adicione aqui para debug
+
+    print('Erro no serializer:', serializer.errors)
     print('Dados recebidos:', request.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 @api_view(['PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
 def item_carrinho_detail(request, pk):
     try:
         item = ItemCarrinho.objects.get(pk=pk)
     except ItemCarrinho.DoesNotExist:
         return Response({'erro': 'Item do carrinho não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Proteção: só o dono do carrinho pode modificar o item
+    if item.carrinho.usuario != request.user:
+        return Response({'erro': 'Você não tem permissão para alterar este item.'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'PUT':
         serializer = ItemCarrinhoSerializer(item, data=request.data, partial=True)
