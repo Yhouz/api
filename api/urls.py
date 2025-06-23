@@ -4,7 +4,7 @@ from .views import (
     buscar_produto, cadastrar_cardapio, deletar_cardapio, deletar_produto, editar_cardapio, editar_produto, cadastro_produto,
     cadastro_funcionario, login_funcionario,
     listar_fornecedores, criar_fornecedor, detalhar_fornecedor,
-    editar_fornecedor, deletar_fornecedor,
+    editar_fornecedor, deletar_fornecedor,recuperar_senha,
 )
 
 urlpatterns = [
@@ -12,7 +12,7 @@ urlpatterns = [
     path('cadastro/', api_cadastro, name='api_cadastro'),
     path('login-funcionario/', login_funcionario, name='login_funcionario'),
     path('cadastro-funcionario/', cadastro_funcionario, name='cadastro_funcionario'),
-    path('recuperar-senha/', api_cadastro, name='recuperar_senha'),  # Supondo que a mesma view trate o cadastro e recuperação de senha
+    path('recuperar-senha/', recuperar_senha, name='recuperar_senha'),  # Supondo que a mesma view trate o cadastro e recuperação de senha
     
     # Produtos
     path('produtos/cadastrar/', cadastro_produto),
