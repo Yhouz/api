@@ -497,7 +497,6 @@ def deletar_cardapio(request, id):
 def recuperar_senha(request):
     print(f"Dados recebidos na requisição: {request.data}") # <-- ADICIONE ESTA LINHA AQUI
     email = request.data.get('email')
-    email = request.data.get('email')
     nova_senha = request.data.get('nova_senha')
 
     if not email or not nova_senha:
