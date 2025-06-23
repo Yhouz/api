@@ -5,12 +5,12 @@ import json
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serializers import CardapioSerializer, ProdutoSerializer, FornecedorSerializer
+from .serializers import CardapioSerializer, CarrinhoSerializer, ItemCarrinhoSerializer, ProdutoSerializer, FornecedorSerializer
 from django.shortcuts import get_object_or_404
 
 
 
-from .models import Cardapio, Funcionario, Usuario, Produto, Fornecedor
+from .models import Cardapio, Carrinho, Funcionario, ItemCarrinho, Usuario, Produto, Fornecedor
 
 
 
@@ -524,12 +524,6 @@ def recuperar_senha(request):
         return Response({'success': False, 'message': 'Erro interno do servidor.'}, status=500)
 
 
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .models import Carrinho, ItemCarrinho, Produto, Usuario
-from .serializers import CarrinhoSerializer, ItemCarrinhoSerializer
-
 # -------------------------------
 # CARRINHO
 # -------------------------------
@@ -582,6 +576,8 @@ def adicionar_item_carrinho(request):
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    print('Erro no serializer:', serializer.errors)  # <-- Adicione aqui para debug
+    print('Dados recebidos:', request.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

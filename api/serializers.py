@@ -82,7 +82,7 @@ class ItemCarrinhoSerializer(serializers.ModelSerializer):
     produto = ProdutoSerializer(read_only=True)
     produto_id = serializers.PrimaryKeyRelatedField(
         queryset=Produto.objects.all(),
-        source='produto',
+        source='produto',   # mapeia o produto_id para o campo produto no model
         write_only=True
     )
 
