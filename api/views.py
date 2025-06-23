@@ -11,6 +11,8 @@ from django.shortcuts import get_object_or_404
 
 
 from .models import Cardapio, Funcionario, Usuario, Produto, Fornecedor
+from django.contrib.auth.hashers import make_password # Importe make_password
+
 
 
 @api_view(['POST'])
@@ -498,10 +500,23 @@ def recuperar_senha(request):
     if not email or not nova_senha:
         return Response({'success': False, 'message': 'Email e nova senha são obrigatórios.'}, status=400)
 
+    # Adicionar validações de senha aqui (ex: comprimento mínimo)
+    if len(nova_senha) < 8: # Exemplo de validação de comprimento
+        return Response({'success': False, 'message': 'A nova senha deve ter no mínimo 8 caracteres.'}, status=400)
+    # Adicione outras validações de complexidade conforme necessário
+
     try:
         usuario = Usuario.objects.get(email=email)
-        usuario.senha = nova_senha  # ⚠️ Aqui você está alterando diretamente o campo senha
+
+        # 🟢 CORREÇÃO CRÍTICA: Use make_password para hash a senha
+        # antes de atribuir ao campo 'senha'
+        usuario.senha = make_password(nova_senha)
         usuario.save()
+
         return Response({'success': True, 'message': 'Senha atualizada com sucesso.'})
     except Usuario.DoesNotExist:
         return Response({'success': False, 'message': 'Usuário não encontrado.'}, status=404)
+    except Exception as e:
+        # Capture outras exceções para depuração
+        print(f"Erro inesperado ao tentar recuperar senha: {e}")
+        return Response({'success': False, 'message': 'Erro interno do servidor.'}, status=500)
