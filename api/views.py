@@ -25,7 +25,8 @@ def api_cadastro(request):
     cpf = request.data.get('cpf')
 
     # Validação dos campos obrigatórios
-    if not nome or not senha or not tipo_usuario or not email or not cpf:
+    if not senha or not email:
+    #if not nome or not senha or not tipo_usuario or not email or not cpf:
         return Response({'success': False, 'message': 'Campos obrigatórios faltando.'}, status=400)
 
     # 🔥 Validação do e-mail institucional
