@@ -531,7 +531,7 @@ def recuperar_senha(request):
 # -------------------------------
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
+#@permission_classes([IsAuthenticated])
 def carrinho_list_create(request):
     if request.method == 'GET':
         # Filtrar só os carrinhos do usuário logado
@@ -552,7 +552,7 @@ def carrinho_list_create(request):
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
+#@permission_classes([IsAuthenticated])
 def carrinho_detail(request, pk):
     try:
         carrinho = Carrinho.objects.get(pk=pk)
@@ -584,7 +584,7 @@ def carrinho_detail(request, pk):
 # -------------------------------
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+#@permission_classes([IsAuthenticated])
 def adicionar_item_carrinho(request):
     carrinho_id = request.data.get('carrinho')
     if not carrinho_id:
@@ -611,7 +611,7 @@ def adicionar_item_carrinho(request):
 
 
 @api_view(['PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
+#@permission_classes([IsAuthenticated])
 def item_carrinho_detail(request, pk):
     try:
         item = ItemCarrinho.objects.get(pk=pk)
