@@ -545,20 +545,26 @@ def recuperar_senha(request):
 @permission_classes([IsAuthenticated])
 def carrinho_list_create(request):
     if request.method == 'GET':
-        # Filtrar só os carrinhos do usuário logado
         carrinhos = Carrinho.objects.filter(usuario=request.user)
-        serializer = CarrinhoSerializer(carrinhos, many=True)
+        # ✅ Importante: Passe o 'request' no contexto também para GET
+        serializer = CarrinhoSerializer(carrinhos, many=True, context={'request': request})
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        # Forçar que o carrinho seja criado para o usuário autenticado
-        data = request.data.copy()
-        data['usuario'] = request.user.id
-        serializer = CarrinhoSerializer(data=data)
+        # REMOVA esta linha se ela ainda estiver aqui:
+        # data = request.data.copy()
+        # data['usuario'] = request.user.id
+
+        # ✅ ESSENCIAL para POST: Passe o 'request' no contexto do serializer
+        serializer = CarrinhoSerializer(data=request.data, context={'request': request})
+
         if serializer.is_valid():
-            serializer.save()
+            serializer.save() # O serializer.save() vai usar request.user do contexto
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        print('Erro no serializer ao criar carrinho:', serializer.errors) # Ajuda a depurar
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
@@ -596,30 +602,49 @@ def carrinho_detail(request, pk):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def adicionar_item_carrinho(request):
-    carrinho_id = request.data.get('carrinho')
-    if not carrinho_id:
-        return Response({'erro': 'ID do carrinho é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+def adicionar_item_carrinho(request, carrinho_id):
+    print(f"\n--- INICIANDO adicionar_item_carrinho ---")
+    print(f"Método da requisição: {request.method}")
+    print(f"Usuário autenticado (request.user): {request.user}")
+    print(f"ID do usuário autenticado: {request.user.id if request.user.is_authenticated else 'Não autenticado'}")
+    print(f"Carrinho ID da URL: {carrinho_id}")
+    print(f"Dados recebidos no corpo da requisição para adicionar item: {request.data}")
+
+    if not request.user.is_authenticated:
+        print("ERRO (View): Requisição feita por usuário não autenticado. Deveria ser barrado por IsAuthenticated.")
+        return Response({'erro': 'Autenticação necessária para adicionar itens.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    # ESTA É A LINHA QUE VOCÊ QUERIA: Pegando 'produto' do request.data
+    produto_id_from_body = request.data.get('produto_id') # <--- COMO ESTAVA ANTES DA ÚLTIMA MUDANÇA
+
+    if not produto_id_from_body:
+        print("ERRO (View): ID do produto é obrigatório.")
+        return Response({'erro': 'ID do produto é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        carrinho = Carrinho.objects.get(id=carrinho_id)
+        carrinho_instance = Carrinho.objects.get(id=carrinho_id, usuario=request.user)
+        print(f"DEBUG (View): Carrinho {carrinho_instance.id} encontrado e pertence ao usuário {request.user.id}.")
     except Carrinho.DoesNotExist:
-        return Response({'erro': 'Carrinho não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        print(f"ERRO (View): Carrinho com ID {carrinho_id} não encontrado para o usuário {request.user.id}.")
+        return Response({'erro': 'Carrinho não encontrado ou você não tem permissão para acessá-lo.'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Proteção: só o dono pode adicionar itens ao próprio carrinho
-    if carrinho.usuario != request.user:
-        return Response({'erro': 'Você não tem permissão para adicionar itens neste carrinho.'}, status=status.HTTP_403_FORBIDDEN)
+    data_for_serializer = request.data.copy()
+    data_for_serializer['carrinho'] = carrinho_instance.id 
+    # Neste ponto, o data_for_serializer ainda conterá 'produto' e não 'produto_id'
 
-    serializer = ItemCarrinhoSerializer(data=request.data)
+    serializer = ItemCarrinhoSerializer(data=data_for_serializer, context={'request': request})
+    
     if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        try:
+            item = serializer.save()
+            print(f"DEBUG (View): Item {item.id} adicionado ao carrinho {item.carrinho.id}.")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            print(f"ERRO CRÍTICO (adicionar_item_carrinho - save): {e}")
+            return Response({'success': False, 'message': f'Erro ao adicionar item: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
-    print('Erro no serializer:', serializer.errors)
-    print('Dados recebidos:', request.data)
+    print('Erro no serializer (adicionar_item_carrinho - validação):', serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])

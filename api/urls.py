@@ -10,6 +10,7 @@ from .views import (
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
+    TokenBlacklistView # Certifique-se de importar TokenBlacklistView se for usar para logout
 )
 
 
@@ -18,14 +19,13 @@ urlpatterns = [
     path('cadastro/', api_cadastro, name='api_cadastro'),
     path('login-funcionario/', login_funcionario, name='login_funcionario'),
     path('cadastro-funcionario/', cadastro_funcionario, name='cadastro_funcionario'),
-    path('recuperar-senha/', recuperar_senha, name='recuperar_senha'),  # Supondo que a mesma view trate o cadastro e recuperação de senha
-    
+    path('recuperar-senha/', recuperar_senha, name='recuperar_senha'),
     
     # Produtos
     path('produtos/cadastrar/', cadastro_produto),
-    path('produtos/', buscar_produto),            # GET todos
-    path('produtos/<int:id>/', buscar_produto),   # GET por ID
-    path('produtos/editar/<int:id>/', editar_produto),  # PUT ou PATCH
+    path('produtos/', buscar_produto),
+    path('produtos/<int:id>/', buscar_produto),
+    path('produtos/editar/<int:id>/', editar_produto),
     path('produtos/deletar/<int:id>/',deletar_produto),
     
     # Fornecedores
@@ -45,10 +45,17 @@ urlpatterns = [
     # Carrinho de Compras
     path('carrinhos/', carrinho_list_create, name='carrinho_list_create'),
     path('carrinhos/<int:pk>/', carrinho_detail, name='carrinho_detail'),
-    path('itens_carrinho/', adicionar_item_carrinho, name='adicionar_item_carrinho'),
+    
+    # ✅ CORREÇÃO AQUI: Adicione esta nova rota para adicionar itens ao carrinho
+    path('carrinhos/<int:carrinho_id>/itens/', adicionar_item_carrinho, name='adicionar_item_carrinho_nested'),
+    
+    # Mantenha esta rota antiga se o frontend ainda a usar em algum lugar, mas a nova é preferível
+    path('itens_carrinho/', adicionar_item_carrinho, name='adicionar_item_carrinho_flat'), 
+    
     path('itens_carrinho/<int:pk>/', item_carrinho_detail, name='item_carrinho_detail'),
 
     # JWT Token Endpoints
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/blacklist/', TokenBlacklistView.as_view(), name='token_blacklist'), # Se você for usar para logout
 ]

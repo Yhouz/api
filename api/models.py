@@ -1,13 +1,31 @@
 
-
-
-
-
-
-
-
-
 from django.db import models
+
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager # ✅ Importar essas classes
+
+# --- CUSTOM USER MANAGER ---
+# Esta classe é necessária para dizer ao Django como criar um usuário e um superusuário
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, nome, cpf, tipo_usuario, senha=None, **extra_fields):
+        if not email:
+            raise ValueError('O campo de Email deve ser definido')
+        email = self.normalize_email(email)
+        user = self.model(email=email, nome=nome, cpf=cpf, tipo_usuario=tipo_usuario, **extra_fields)
+        user.set_password(senha) # Usa o método set_password para hashear a senha
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, nome, cpf, tipo_usuario='admin', senha=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True) # Superusuário sempre ativo
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self.create_user(email, nome, cpf, tipo_usuario, senha, **extra_fields)
 
 
 TIPOS = (
@@ -16,19 +34,43 @@ TIPOS = (
     ('admin', 'Administrador'),
 )
 
-
-class Usuario(models.Model):
+# --- USUARIO MODEL ---
+# ✅ Herdar de AbstractBaseUser e PermissionsMixin
+class Usuario(AbstractBaseUser, PermissionsMixin):
     nome = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    senha = models.CharField(max_length=128)
+    senha = models.CharField(max_length=128) # Campo para armazenar a senha hasheada (não vamos mais usar make_password diretamente aqui)
     cpf = models.CharField(max_length=14, unique=True)
     telefone = models.CharField(max_length=15, blank=True, null=True)
     tipo_usuario = models.CharField(max_length=20, choices=TIPOS)
     saldo_carteira = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     data_cadastro = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True) # ✅ Já existia, mas é importante para AbstractBaseUser
+    is_staff = models.BooleanField(default=False) # ✅ Adicione este campo para PermissionsMixin
+
+    # ✅ Esses campos são MANDATÓRIOS para AbstractBaseUser
+    USERNAME_FIELD = 'email'  # O campo que será usado para login
+    REQUIRED_FIELDS = ['nome', 'cpf', 'tipo_usuario'] # Campos obrigatórios para criar superusuários via `createsuperuser`
+
+    # ✅ Conecta seu CustomUserManager ao seu modelo Usuario
+    objects = CustomUserManager()
 
     def __str__(self):
         return self.nome
+
+    # ✅ Adicione este método, essencial para AbstractBaseUser.
+    # O Django o usa internamente para verificar permissões de staff/admin.
+    # Embora PermissionsMixin lide com `is_superuser`, `is_staff` é importante aqui.
+    # Você já tem `is_staff = models.BooleanField(default=False)` acima.
+    def has_perm(self, perm, obj=None):
+        return self.is_superuser # Ou implemente uma lógica mais granular de permissão
+
+    def has_module_perms(self, app_label):
+        return self.is_superuser # Ou implemente uma lógica mais granular de permissão
+
+    # Nota: is_anonymous e is_authenticated são propriedades padrão fornecidas por AbstractBaseUser.
+    # Você não precisa implementá-las diretamente.
+
 
 CARGO = (
     ('gerente', 'Gerente'),

@@ -125,3 +125,13 @@ REST_FRAMEWORK = {
     ],
   
 }
+
+SIMPLE_JWT = {
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'ALGORITHM': 'HS256',
+}
+# settings.py
+AUTH_USER_MODEL = 'api.Usuario' # Certifique-se que 'api' é o nome do seu app

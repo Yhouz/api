@@ -78,24 +78,66 @@ class CardapioSerializer(serializers.ModelSerializer):
     #     cardapio.produtos.set(produtos_data) # produtos_data já são os objetos Produto
     #     return cardapio
 
+# ✅ ItemCarrinhoSerializer: ESTA É A CHAVE PARA O TYPERROR!
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
+    # ESTE CAMPO É PARA LEITURA (quando o backend ENVIA dados para o frontend, GET requests)
+    # Ele DEVE serializar o OBJETO Produto COMPLETO usando ProdutoSerializer.
     produto = ProdutoSerializer(read_only=True)
+
+    # ESTE CAMPO É PARA ESCRITA (quando o frontend ENVIA dados para o backend, POST/PUT requests)
+    # Ele aceita um ID e mapeia para o campo 'produto' do modelo ItemCarrinho.
     produto_id = serializers.PrimaryKeyRelatedField(
-        queryset=Produto.objects.all(),
-        source='produto',   # mapeia o produto_id para o campo produto no model
-        write_only=True
+        queryset=Produto.objects.all(), # Define os produtos válidos
+        source='produto',              # Mapeia para o campo 'produto' do modelo
+        write_only=True                # Indica que este campo é apenas para entrada
     )
 
     subtotal = serializers.SerializerMethodField()
 
     class Meta:
         model = ItemCarrinho
+        # AMBOS 'produto' e 'produto_id' devem estar em 'fields'.
+        # O DRF é inteligente para usar 'produto' na saída e 'produto_id' na entrada.
         fields = ['id', 'carrinho', 'produto', 'produto_id', 'quantidade', 'subtotal']
         read_only_fields = ['id', 'subtotal']
 
     def get_subtotal(self, obj):
         return obj.subtotal()
 
+    def validate(self, data):
+        carrinho_instance = data.get('carrinho')
+        # Quando 'produto_id' é fornecido na entrada, o DRF resolve-o para a instância 'produto'
+        # e a coloca no 'data'. Então, 'data.get('produto')' aqui já deve ser a instância.
+        produto_instance = data.get('produto')
+        quantidade = data.get('quantidade', 0)
+
+        request = self.context.get('request')
+        if not request or not hasattr(request, 'user') or not request.user.is_authenticated:
+            raise serializers.ValidationError({"auth": "Usuário não autenticado para adicionar item ao carrinho."})
+        
+        if not carrinho_instance:
+            raise serializers.ValidationError({"carrinho": "O ID do carrinho é obrigatório e deve ser válido."})
+        
+        if carrinho_instance.usuario.id != request.user.id:
+            raise serializers.ValidationError(
+                {"carrinho": "Você não tem permissão para adicionar itens a este carrinho."}
+            )
+        
+        # A validação para 'produto' verifica a instância
+        if not produto_instance:
+             raise serializers.ValidationError({"produto_id": "Produto não encontrado ou ID inválido."})
+
+        if quantidade <= 0:
+            raise serializers.ValidationError({"quantidade": "A quantidade deve ser maior que zero."})
+        
+        if produto_instance.quantidade_estoque < quantidade:
+            raise serializers.ValidationError({"quantidade": f"Estoque insuficiente para {produto_instance.nome}. Disponível: {produto_instance.quantidade_estoque}"})
+
+        return data
+
+
+
+    
 class CarrinhoSerializer(serializers.ModelSerializer):
     itens = ItemCarrinhoSerializer(many=True, read_only=True)
     total_itens = serializers.SerializerMethodField()
@@ -104,10 +146,23 @@ class CarrinhoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Carrinho
         fields = ['id', 'usuario', 'criado_em', 'atualizado_em', 'finalizado', 'itens', 'total_itens', 'total_valor']
-        read_only_fields = ['id', 'criado_em', 'atualizado_em', 'total_itens', 'total_valor']
+        # ✅ Certifique-se que 'usuario' está em read_only_fields aqui.
+        read_only_fields = ['id', 'criado_em', 'atualizado_em', 'total_itens', 'total_valor', 'usuario']
 
     def get_total_itens(self, obj):
         return obj.total_itens()
 
     def get_total_valor(self, obj):
         return obj.total_valor()
+
+    def create(self, validated_data):
+        # ✅ Esta é a lógica que precisa do 'request' no contexto
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            validated_data['usuario'] = request.user # Atribui o usuário autenticado
+        else:
+            # ❗ Essa parte é importante para depurar:
+            # Se chegar aqui, significa que o request.user não estava disponível/autenticado no contexto
+            raise serializers.ValidationError("Usuário autenticado não encontrado no contexto do serializer para criar o carrinho.")
+
+        return super().create(validated_data)
