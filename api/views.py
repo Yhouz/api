@@ -10,13 +10,16 @@ from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 from rest_framework_simplejwt.tokens import RefreshToken
-
+#from drf_spectacular.utils import extend_schema
 
 
 from .models import Cardapio, Carrinho, Funcionario, ItemCarrinho, Usuario, Produto, Fornecedor
 
 
 
+#@extend_schema(
+  #      tags=['Cadastro'],
+#)
 
 @api_view(['POST'])
 def api_cadastro(request):
