@@ -5,7 +5,7 @@ from .views import (
     cadastro_funcionario, login_funcionario,
     listar_fornecedores, criar_fornecedor, detalhar_fornecedor,
     editar_fornecedor, deletar_fornecedor,recuperar_senha,carrinho_list_create, carrinho_detail,
-    adicionar_item_carrinho, item_carrinho_detail
+    adicionar_item_carrinho, item_carrinho_detail, meu_carrinho_aberto_detail,
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -42,17 +42,19 @@ urlpatterns = [
     path('cardapios/<int:id>/editar/', editar_cardapio, name='editar_cardapio'),
     path('cardapios/<int:id>/deletar/', deletar_cardapio, name='deletar_cardapio'),
 
-    # Carrinho de Compras
-    path('carrinhos/', carrinho_list_create, name='carrinho_list_create'),
-    path('carrinhos/<int:pk>/', carrinho_detail, name='carrinho_detail'),
+      # --- ROTAS DO CARRINHO DE COMPRAS ---
+    path('carrinhos/', carrinho_list_create, name='carrinho-list-create'),
     
-    # ✅ CORREÇÃO AQUI: Adicione esta nova rota para adicionar itens ao carrinho
-    path('carrinhos/<int:carrinho_id>/itens/', adicionar_item_carrinho, name='adicionar_item_carrinho_nested'),
+    # ✅ ROTA ESSENCIAL: Busca o carrinho ativo do usuário logado.
+    # Deve vir ANTES da rota com <int:pk>.
+    path('carrinhos/meu-carrinho/', meu_carrinho_aberto_detail, name='meu-carrinho-detail'),
+
+    path('carrinhos/<int:pk>/', carrinho_detail, name='carrinho-detail-by-pk'),
+
+    # --- ROTAS DOS ITENS DO CARRINHO ---
+    path('carrinhos/<int:carrinho_id>/itens/', adicionar_item_carrinho, name='adicionar-item'),
     
-    # Mantenha esta rota antiga se o frontend ainda a usar em algum lugar, mas a nova é preferível
-    path('itens_carrinho/', adicionar_item_carrinho, name='adicionar_item_carrinho_flat'), 
-    
-    path('itens_carrinho/<int:pk>/', item_carrinho_detail, name='item_carrinho_detail'),
+    path('itens_carrinho/<int:pk>/', item_carrinho_detail, name='item-detail'),
 
     # JWT Token Endpoints
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

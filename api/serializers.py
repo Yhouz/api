@@ -78,63 +78,59 @@ class CardapioSerializer(serializers.ModelSerializer):
     #     cardapio.produtos.set(produtos_data) # produtos_data já são os objetos Produto
     #     return cardapio
 
-# ✅ ItemCarrinhoSerializer: ESTA É A CHAVE PARA O TYPERROR!
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
-    # ESTE CAMPO É PARA LEITURA (quando o backend ENVIA dados para o frontend, GET requests)
-    # Ele DEVE serializar o OBJETO Produto COMPLETO usando ProdutoSerializer.
+    # Para exibir os detalhes do produto, e não apenas o ID.
+    # `read_only=True` significa que este campo é usado para exibir dados, não para receber.
     produto = ProdutoSerializer(read_only=True)
-
-    # ESTE CAMPO É PARA ESCRITA (quando o frontend ENVIA dados para o backend, POST/PUT requests)
-    # Ele aceita um ID e mapeia para o campo 'produto' do modelo ItemCarrinho.
-    produto_id = serializers.PrimaryKeyRelatedField(
-        queryset=Produto.objects.all(), # Define os produtos válidos
-        source='produto',              # Mapeia para o campo 'produto' do modelo
-        write_only=True                # Indica que este campo é apenas para entrada
-    )
-
-    subtotal = serializers.SerializerMethodField()
+    
+    # Para receber o ID do produto ao criar um novo item.
+    # `write_only=True` significa que este campo é usado para receber dados, não para exibir.
+    produto_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = ItemCarrinho
-        # AMBOS 'produto' e 'produto_id' devem estar em 'fields'.
-        # O DRF é inteligente para usar 'produto' na saída e 'produto_id' na entrada.
-        fields = ['id', 'carrinho', 'produto', 'produto_id', 'quantidade', 'subtotal']
-        read_only_fields = ['id', 'subtotal']
-
-    def get_subtotal(self, obj):
-        return obj.subtotal()
-
-    def validate(self, data):
-        carrinho_instance = data.get('carrinho')
-        # Quando 'produto_id' é fornecido na entrada, o DRF resolve-o para a instância 'produto'
-        # e a coloca no 'data'. Então, 'data.get('produto')' aqui já deve ser a instância.
-        produto_instance = data.get('produto')
-        quantidade = data.get('quantidade', 0)
-
-        request = self.context.get('request')
-        if not request or not hasattr(request, 'user') or not request.user.is_authenticated:
-            raise serializers.ValidationError({"auth": "Usuário não autenticado para adicionar item ao carrinho."})
+        fields = [
+            'id', 
+            'carrinho', 
+            'produto',       # Para exibir os detalhes do produto
+            'produto_id',    # Para receber o ID do produto na criação
+            'quantidade', 
+            'subtotal'
+        ]
         
-        if not carrinho_instance:
-            raise serializers.ValidationError({"carrinho": "O ID do carrinho é obrigatório e deve ser válido."})
-        
-        if carrinho_instance.usuario.id != request.user.id:
-            raise serializers.ValidationError(
-                {"carrinho": "Você não tem permissão para adicionar itens a este carrinho."}
-            )
-        
-        # A validação para 'produto' verifica a instância
-        if not produto_instance:
-             raise serializers.ValidationError({"produto_id": "Produto não encontrado ou ID inválido."})
+        # ✅ ✅ ✅ A CORREÇÃO PRINCIPAL ESTÁ AQUI ✅ ✅ ✅
+        # Ao declarar 'carrinho' como um campo de "apenas leitura" (read-only),
+        # o serializer não vai mais exigi-lo no corpo da requisição de um PUT/PATCH.
+        # Ele entenderá que o carrinho do item já existe e não deve ser alterado.
+        read_only_fields = ['carrinho', 'subtotal']
 
-        if quantidade <= 0:
-            raise serializers.ValidationError({"quantidade": "A quantidade deve ser maior que zero."})
+    def validate_quantidade(self, value):
+        """
+        Validação de estoque diretamente no serializer.
+        """
+        # Ao criar (self.instance é None), ou ao atualizar (self.instance existe)
+        produto = None
+        if self.instance:
+            # Atualização: pega o produto do item existente
+            produto = self.instance.produto
+        else:
+            # Criação: pega o produto_id dos dados validados
+            produto_id = self.initial_data.get('produto_id')
+            if produto_id:
+                produto = Produto.objects.get(pk=produto_id)
+
+        if produto and value > produto.quantidade_estoque:
+            raise serializers.ValidationError(f"Estoque insuficiente. Apenas {produto.quantidade_estoque} unidades disponíveis.")
         
-        if produto_instance.quantidade_estoque < quantidade:
-            raise serializers.ValidationError({"quantidade": f"Estoque insuficiente para {produto_instance.nome}. Disponível: {produto_instance.quantidade_estoque}"})
+        return value
 
-        return data
-
+    def create(self, validated_data):
+        """
+        Garante que o produto seja atribuído corretamente ao criar um novo item.
+        """
+        # `produto_id` foi validado, agora usamos para criar o item.
+        validated_data['produto_id'] = validated_data.pop('produto_id')
+        return super().create(validated_data)
 
 
     

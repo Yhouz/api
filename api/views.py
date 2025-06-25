@@ -546,7 +546,7 @@ def recuperar_senha(request):
 def carrinho_list_create(request):
     if request.method == 'GET':
         carrinhos = Carrinho.objects.filter(usuario=request.user)
-        # ✅ Importante: Passe o 'request' no contexto também para GET
+        #  Importante: Passe o 'request' no contexto também para GET
         serializer = CarrinhoSerializer(carrinhos, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -555,7 +555,7 @@ def carrinho_list_create(request):
         # data = request.data.copy()
         # data['usuario'] = request.user.id
 
-        # ✅ ESSENCIAL para POST: Passe o 'request' no contexto do serializer
+        #  ESSENCIAL para POST: Passe o 'request' no contexto do serializer
         serializer = CarrinhoSerializer(data=request.data, context={'request': request})
 
         if serializer.is_valid():
@@ -603,12 +603,7 @@ def carrinho_detail(request, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def adicionar_item_carrinho(request, carrinho_id):
-    print(f"\n--- INICIANDO adicionar_item_carrinho ---")
-    print(f"Método da requisição: {request.method}")
-    print(f"Usuário autenticado (request.user): {request.user}")
-    print(f"ID do usuário autenticado: {request.user.id if request.user.is_authenticated else 'Não autenticado'}")
-    print(f"Carrinho ID da URL: {carrinho_id}")
-    print(f"Dados recebidos no corpo da requisição para adicionar item: {request.data}")
+
 
     if not request.user.is_authenticated:
         print("ERRO (View): Requisição feita por usuário não autenticado. Deveria ser barrado por IsAuthenticated.")
@@ -654,17 +649,77 @@ def item_carrinho_detail(request, pk):
     except ItemCarrinho.DoesNotExist:
         return Response({'erro': 'Item do carrinho não encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-    # Proteção: só o dono do carrinho pode modificar o item
+    # Proteção para garantir que o usuário só edite itens do seu próprio carrinho
     if item.carrinho.usuario != request.user:
         return Response({'erro': 'Você não tem permissão para alterar este item.'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'PUT':
-        serializer = ItemCarrinhoSerializer(item, data=request.data, partial=True)
+        # ✅ CORREÇÃO AQUI: Adicione o `context={'request': request}`
+        # Isso garante que o serializer tenha acesso ao usuário logado para qualquer validação interna.
+        serializer = ItemCarrinhoSerializer(item, data=request.data, partial=True, context={'request': request})
+        
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
+        # Se a validação falhar, os erros do serializer serão retornados
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def meu_carrinho_aberto_detail(request):
+    """
+    View dedicada para buscar o carrinho em aberto do usuário autenticado.
+    - Se encontrar, retorna 200 OK com os dados do carrinho.
+    - Se não encontrar, retorna 404 Not Found.
+    """
+    try:
+        # A busca precisa ser por usuário E pelo status 'finalizado=False'
+        carrinho = Carrinho.objects.get(usuario=request.user, finalizado=False)
+        
+        # Use o mesmo serializer para garantir que os dados sejam consistentes
+        serializer = CarrinhoSerializer(carrinho, context={'request': request})
+        return Response(serializer.data)
+        
+    except Carrinho.DoesNotExist:
+        # Resposta correta quando o usuário não tem carrinho aberto
+        return Response(
+            {'detail': 'Nenhum carrinho em aberto encontrado para este usuário.'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    except Carrinho.MultipleObjectsReturned:
+        # Medida de segurança: se o usuário tiver múltiplos carrinhos abertos,
+        # pega o mais recente e retorna.
+        carrinho = Carrinho.objects.filter(usuario=request.user, finalizado=False).latest('criado_em')
+        serializer = CarrinhoSerializer(carrinho, context={'request': request})
+        return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def meu_carrinho_aberto_detail(request):
+    """
+    Busca o carrinho em aberto do usuário autenticado.
+    - Se encontrar, retorna 200 OK com os dados do carrinho.
+    - Se não encontrar, retorna 404 Not Found.
+    """
+    try:
+        carrinho = Carrinho.objects.get(usuario=request.user, finalizado=False)
+        serializer = CarrinhoSerializer(carrinho, context={'request': request})
+        return Response(serializer.data)
+        
+    except Carrinho.DoesNotExist:
+        return Response(
+            {'detail': 'Nenhum carrinho em aberto encontrado para este usuário.'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    except Carrinho.MultipleObjectsReturned:
+        # Medida de segurança: se o usuário tiver múltiplos carrinhos abertos, pega o mais recente.
+        carrinho = Carrinho.objects.filter(usuario=request.user, finalizado=False).latest('criado_em')
+        serializer = CarrinhoSerializer(carrinho, context={'request': request})
+        return Response(serializer.data)
