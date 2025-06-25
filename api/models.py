@@ -1,4 +1,5 @@
 
+from tkinter.tix import STATUS
 from django.db import models
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager # ✅ Importar essas classes
@@ -212,7 +213,33 @@ class ItemCarrinho(models.Model):
     def subtotal(self):
         return self.quantidade * self.produto.preco
 
+## Pedido 
 
+STATUS = (  # noqa: F811
+    ('pendente', 'Pendente'),
+    ('entregue', 'Entregue'),
+)
 
+class Pedido(models.Model):
+    pedido_id = models.AutoField(primary_key=True)
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='pedidos')
+    carrinho = models.ForeignKey(Carrinho, on_delete=models.CASCADE, related_name='pedido', unique=True)
+    data_pedido = models.DateTimeField(auto_now_add=True)
+    total = models.DecimalField(max_digits=10, decimal_places=2)
+    status_pedido = models.CharField(max_length=20, choices= STATUS)  # Ex: Pendente, Em Preparação, Entregue
+    qr_code_pedido = models.CharField(max_length=100, blank=True, null=True)  # Para armazenar o QR Code do pedido
 
+    def __str__(self):
+        return f"Pedido {self.id} - {self.usuario.nome} - {self.data_pedido.strftime('%d/%m/%Y %H:%M')}"
+
+class PedidoItem(models.Model):
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='itens')
+    produto = models.ForeignKey(Produto, on_delete=models.CASCADE)
+    quantidade = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.quantidade}x {self.produto.nome} - Pedido {self.pedido.id}"
+    
+    def subtotal(self):
+        return self.quantidade * self.produto.preco
 

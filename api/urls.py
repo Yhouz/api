@@ -5,7 +5,7 @@ from .views import (
     cadastro_funcionario, login_funcionario,
     listar_fornecedores, criar_fornecedor, detalhar_fornecedor,
     editar_fornecedor, deletar_fornecedor,recuperar_senha,carrinho_list_create, carrinho_detail,
-    adicionar_item_carrinho, item_carrinho_detail, meu_carrinho_aberto_detail,
+    adicionar_item_carrinho, item_carrinho_detail, meu_carrinho_aberto_detail,criar_pedido, listar_pedidos, detalhar_pedido,  deletar_pedido, finalizar_pedido
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -60,4 +60,13 @@ urlpatterns = [
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('token/blacklist/', TokenBlacklistView.as_view(), name='token_blacklist'), # Se você for usar para logout
+
+    # Pedido
+    path('pedidos/', listar_pedidos, name='listar_pedidos'),
+    path('pedidos/<int:id>/', detalhar_pedido, name='detalhar_pedido'),
+    path('pedidos/criar/', criar_pedido, name='criar_pedido'),  
+    path('pedidos/<int:id>/deletar/', deletar_pedido, name='deletar_pedido'),
+    path('pedidos/<int:id>/finalizar/', finalizar_pedido, name='finalizar_pedido'),
+    
+    
 ]

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cardapio, Carrinho, ItemCarrinho, Usuario, Funcionario, Produto, Fornecedor
+from .models import Cardapio, Carrinho, ItemCarrinho, Usuario, Funcionario, Produto, Fornecedor, Pedido, PedidoItem
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -161,4 +161,34 @@ class CarrinhoSerializer(serializers.ModelSerializer):
             # Se chegar aqui, significa que o request.user não estava disponível/autenticado no contexto
             raise serializers.ValidationError("Usuário autenticado não encontrado no contexto do serializer para criar o carrinho.")
 
+        return super().create(validated_data)
+    
+class PedidoSerializer(serializers.ModelSerializer):
+    itens = ItemCarrinhoSerializer(many=True, read_only=True)
+    total_itens = serializers.SerializerMethodField()
+    total_valor = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pedido
+        fields = ['id', 'usuario', 'carrinho', 'data_pedido', 'status', 'itens', 'total_itens', 'total_valor']
+        read_only_fields = ['id', 'data_pedido', 'status', 'itens', 'total_itens', 'total_valor']
+
+    def get_total_itens(self, obj):
+        return obj.carrinho.total_itens()
+
+    def get_total_valor(self, obj):
+        return obj.carrinho.total_valor()
+
+
+class PedidoItemSerializer(serializers.ModelSerializer):
+    produto = ProdutoSerializer(read_only=True)
+    produto_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = PedidoItem
+        fields = ['id', 'pedido', 'produto', 'produto_id', 'quantidade']
+        read_only_fields = ['id', 'pedido', 'produto']
+
+    def create(self, validated_data):
+        validated_data['produto_id'] = validated_data.pop('produto_id')
         return super().create(validated_data)

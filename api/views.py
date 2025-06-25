@@ -1,11 +1,10 @@
 from datetime import datetime
 
-
 import json
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serializers import CardapioSerializer, CarrinhoSerializer, ItemCarrinhoSerializer, ProdutoSerializer, FornecedorSerializer
+from .serializers import CardapioSerializer, CarrinhoSerializer, ItemCarrinhoSerializer, PedidoSerializer, ProdutoSerializer, FornecedorSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
@@ -13,7 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 #from drf_spectacular.utils import extend_schema
 
 
-from .models import Cardapio, Carrinho, Funcionario, ItemCarrinho, Usuario, Produto, Fornecedor
+from .models import Cardapio, Carrinho, Funcionario, ItemCarrinho, Usuario, Produto, Fornecedor, Pedido
 
 
 
@@ -644,6 +643,7 @@ def adicionar_item_carrinho(request, carrinho_id):
     print('Erro no serializer (adicionar_item_carrinho - validação):', serializer.errors)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def item_carrinho_detail(request, pk):
@@ -702,27 +702,158 @@ def meu_carrinho_aberto_detail(request):
         return Response(serializer.data)
 
 
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def meu_carrinho_aberto_detail(request):
+def finalizar_carrinho(request, carrinho_id):
     """
-    Busca o carrinho em aberto do usuário autenticado.
-    - Se encontrar, retorna 200 OK com os dados do carrinho.
-    - Se não encontrar, retorna 404 Not Found.
+    Finaliza o carrinho do usuário autenticado.
+    - Se o carrinho for encontrado e não estiver finalizado, marca como finalizado.
+    - Retorna 200 OK com os dados do carrinho atualizado.
+    - Se não encontrar o carrinho, retorna 404 Not Found.
     """
     try:
-        carrinho = Carrinho.objects.get(usuario=request.user, finalizado=False)
+        carrinho = Carrinho.objects.get(id=carrinho_id, usuario=request.user, finalizado=False)
+        carrinho.finalizado = True
+        carrinho.save()
+        
         serializer = CarrinhoSerializer(carrinho, context={'request': request})
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
         
     except Carrinho.DoesNotExist:
-        return Response(
-            {'detail': 'Nenhum carrinho em aberto encontrado para este usuário.'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({'detail': 'Carrinho não encontrado ou já finalizado.'}, status=status.HTTP_404_NOT_FOUND)
     
-    except Carrinho.MultipleObjectsReturned:
-        # Medida de segurança: se o usuário tiver múltiplos carrinhos abertos, pega o mais recente.
-        carrinho = Carrinho.objects.filter(usuario=request.user, finalizado=False).latest('criado_em')
-        serializer = CarrinhoSerializer(carrinho, context={'request': request})
-        return Response(serializer.data)
+
+# -------------------------------
+# FINALIZAR PEDIDO
+# -------------------------------
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def finalizar_pedido(request, pedido_id):
+    """
+    Finaliza um pedido específico do usuário autenticado.
+    - Se o pedido for encontrado e não estiver finalizado, marca como finalizado.
+    - Retorna 200 OK com os dados do pedido atualizado.
+    - Se não encontrar o pedido, retorna 404 Not Found.
+    """
+    try:
+        pedido = Pedido.objects.get(id=pedido_id, usuario=request.user, status_pedido='Pendente')
+        pedido.status_pedido = 'Finalizado'
+        pedido.data_finalizacao = datetime.now()  # Define a data de finalização
+        pedido.total = pedido.carrinho.total_valor()  # Atualiza o total do pedido com o valor do carrinho
+        pedido.qr_code_pedido = str(pedido.pedido_id)  # Define o QR Code como o ID do pedido (ou outra lógica que você queira)
+        pedido.save()
+
+        serializer = PedidoSerializer(pedido, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    except Pedido.DoesNotExist:
+        return Response({'detail': 'Pedido não encontrado ou já finalizado.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# -------------------------------
+# PEDIDO    
+# -------------------------------
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def criar_pedido(request):
+    """
+    Cria um novo pedido a partir do carrinho em aberto do usuário autenticado.
+    - Se o carrinho em aberto for encontrado, cria o pedido e finaliza o carrinho.
+    - Retorna 201 Created com os dados do pedido.
+    - Se não encontrar o carrinho, retorna 404 Not Found.
+    """
+    try:
+        # Busca o carrinho em aberto do usuário
+        carrinho = Carrinho.objects.get(usuario=request.user, finalizado=False)
+        
+        # Cria o pedido com os dados do carrinho
+        pedido = Pedido.objects.create(
+            usuario=request.user,
+            carrinho=carrinho,
+            total=carrinho.total_valor(),  # Calcula o total do carrinho
+            status_pedido='Pendente'  # Define o status inicial como 'Pendente'
+        )
+        
+        # Marca o carrinho como finalizado
+        carrinho.finalizado = True
+        carrinho.save()
+        
+        serializer = PedidoSerializer(pedido, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+    except Carrinho.DoesNotExist:
+        return Response({'detail': 'Carrinho não encontrado ou já finalizado.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def listar_pedidos(request):
+    """
+    Lista todos os pedidos do usuário autenticado.
+    - Retorna 200 OK com a lista de pedidos.
+    - Se não houver pedidos, retorna uma lista vazia.
+    """
+    pedidos = Pedido.objects.filter(usuario=request.user)
+    
+    if not pedidos:
+        return Response({'detail': 'Nenhum pedido encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+    
+    serializer = PedidoSerializer(pedidos, many=True, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def detalhar_pedido(request, pedido_id):
+    """
+    Detalha um pedido específico do usuário autenticado.
+    - Se o pedido for encontrado, retorna 200 OK com os dados do pedido.
+    - Se não encontrar o pedido, retorna 404 Not Found.
+    """
+    try:
+        pedido = Pedido.objects.get(id=pedido_id, usuario=request.user)
+        serializer = PedidoSerializer(pedido, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    except Pedido.DoesNotExist:
+        return Response({'detail': 'Pedido não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+    
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def atualizar_pedido(request, pedido_id):
+    """
+    Atualiza um pedido específico do usuário autenticado.
+    - Se o pedido for encontrado, atualiza os dados e retorna 200 OK com os dados atualizados.
+    - Se não encontrar o pedido, retorna 404 Not Found.
+    """
+    try:
+        pedido = Pedido.objects.get(id=pedido_id, usuario=request.user)
+        serializer = PedidoSerializer(pedido, data=request.data, partial=True, context={'request': request})
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Pedido.DoesNotExist:
+        return Response({'detail': 'Pedido não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+    
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def deletar_pedido(request, pedido_id):
+    """
+    Deleta um pedido específico do usuário autenticado.
+    - Se o pedido for encontrado, deleta e retorna 204 No Content.
+    - Se não encontrar o pedido, retorna 404 Not Found.
+    """
+    try:
+        pedido = Pedido.objects.get(id=pedido_id, usuario=request.user)
+        pedido.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+        
+    except Pedido.DoesNotExist:
+        return Response({'detail': 'Pedido não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+    
+
+    
