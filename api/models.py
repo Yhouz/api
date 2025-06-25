@@ -1,5 +1,5 @@
 
-from tkinter.tix import STATUS
+
 from django.db import models
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager # ✅ Importar essas classes
@@ -215,7 +215,7 @@ class ItemCarrinho(models.Model):
 
 ## Pedido 
 
-STATUS = (  # noqa: F811
+STATUS_ped = (  
     ('pendente', 'Pendente'),
     ('entregue', 'Entregue'),
 )
@@ -226,7 +226,7 @@ class Pedido(models.Model):
     carrinho = models.ForeignKey(Carrinho, on_delete=models.CASCADE, related_name='pedido', unique=True)
     data_pedido = models.DateTimeField(auto_now_add=True)
     total = models.DecimalField(max_digits=10, decimal_places=2)
-    status_pedido = models.CharField(max_length=20, choices= STATUS)  # Ex: Pendente, Em Preparação, Entregue
+    status_pedido = models.CharField(max_length=20, choices= STATUS_ped)  # Ex: Pendente, Em Preparação, Entregue
     qr_code_pedido = models.CharField(max_length=100, blank=True, null=True)  # Para armazenar o QR Code do pedido
 
     def __str__(self):
