@@ -79,58 +79,34 @@ class CardapioSerializer(serializers.ModelSerializer):
     #     return cardapio
 
 class ItemCarrinhoSerializer(serializers.ModelSerializer):
-    # Para exibir os detalhes do produto, e não apenas o ID.
-    # `read_only=True` significa que este campo é usado para exibir dados, não para receber.
     produto = ProdutoSerializer(read_only=True)
-    
-    # Para receber o ID do produto ao criar um novo item.
-    # `write_only=True` significa que este campo é usado para receber dados, não para exibir.
     produto_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = ItemCarrinho
-        fields = [
-            'id', 
-            'carrinho', 
-            'produto',       # Para exibir os detalhes do produto
-            'produto_id',    # Para receber o ID do produto na criação
-            'quantidade', 
-            'subtotal'
-        ]
-        
-        # ✅ ✅ ✅ A CORREÇÃO PRINCIPAL ESTÁ AQUI ✅ ✅ ✅
-        # Ao declarar 'carrinho' como um campo de "apenas leitura" (read-only),
-        # o serializer não vai mais exigi-lo no corpo da requisição de um PUT/PATCH.
-        # Ele entenderá que o carrinho do item já existe e não deve ser alterado.
+        fields = ['id', 'carrinho', 'produto', 'produto_id', 'quantidade', 'subtotal']
         read_only_fields = ['carrinho', 'subtotal']
 
     def validate_quantidade(self, value):
-        """
-        Validação de estoque diretamente no serializer.
-        """
-        # Ao criar (self.instance é None), ou ao atualizar (self.instance existe)
         produto = None
         if self.instance:
-            # Atualização: pega o produto do item existente
             produto = self.instance.produto
         else:
-            # Criação: pega o produto_id dos dados validados
+            # Pegando o produto_id que já foi validado como Integer
             produto_id = self.initial_data.get('produto_id')
             if produto_id:
-                produto = Produto.objects.get(pk=produto_id)
+                try:
+                    # ✅ Busca mais segura
+                    produto = Produto.objects.get(pk=produto_id)
+                except Produto.DoesNotExist:
+                    # Se o produto não existe, a validação de campo do produto_id já deve falhar,
+                    # mas esta é uma segurança extra.
+                    raise serializers.ValidationError(f"Produto com ID {produto_id} não encontrado.")
 
         if produto and value > produto.quantidade_estoque:
             raise serializers.ValidationError(f"Estoque insuficiente. Apenas {produto.quantidade_estoque} unidades disponíveis.")
         
         return value
-
-    def create(self, validated_data):
-        """
-        Garante que o produto seja atribuído corretamente ao criar um novo item.
-        """
-        # `produto_id` foi validado, agora usamos para criar o item.
-        validated_data['produto_id'] = validated_data.pop('produto_id')
-        return super().create(validated_data)
 
 
     
