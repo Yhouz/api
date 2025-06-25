@@ -605,43 +605,63 @@ def carrinho_detail(request, pk):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def adicionar_item_carrinho(request, carrinho_id):
+    """
+    Adiciona um produto a um carrinho específico ou atualiza sua quantidade.
+    Esta view é segura, robusta e resolve o erro do "carrinho_id nulo".
+    """
+    produto_id = request.data.get('produto_id')
+    quantidade_a_adicionar = int(request.data.get('quantidade', 1))
 
+    if not produto_id:
+        return Response(
+            {"erro": "O ID do produto é obrigatório no corpo da requisição."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    if not request.user.is_authenticated:
-        print("ERRO (View): Requisição feita por usuário não autenticado. Deveria ser barrado por IsAuthenticated.")
-        return Response({'erro': 'Autenticação necessária para adicionar itens.'}, status=status.HTTP_401_UNAUTHORIZED)
-
-    # ESTA É A LINHA QUE VOCÊ QUERIA: Pegando 'produto' do request.data
-    produto_id_from_body = request.data.get('produto_id') # <--- COMO ESTAVA ANTES DA ÚLTIMA MUDANÇA
-
-    if not produto_id_from_body:
-        print("ERRO (View): ID do produto é obrigatório.")
-        return Response({'erro': 'ID do produto é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
-
+    # Passo 1: Validação do Carrinho
+    # Busca o carrinho pelo ID da URL e garante que ele pertence ao usuário logado.
     try:
-        carrinho_instance = Carrinho.objects.get(id=carrinho_id, usuario=request.user)
-        print(f"DEBUG (View): Carrinho {carrinho_instance.id} encontrado e pertence ao usuário {request.user.id}.")
+        carrinho = Carrinho.objects.get(id=carrinho_id, usuario=request.user)
     except Carrinho.DoesNotExist:
-        print(f"ERRO (View): Carrinho com ID {carrinho_id} não encontrado para o usuário {request.user.id}.")
-        return Response({'erro': 'Carrinho não encontrado ou você não tem permissão para acessá-lo.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"erro": "Carrinho não encontrado ou você não tem permissão para acessá-lo."},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
-    data_for_serializer = request.data.copy()
-    data_for_serializer['carrinho'] = carrinho_instance.id 
-    # Neste ponto, o data_for_serializer ainda conterá 'produto' e não 'produto_id'
-
-    serializer = ItemCarrinhoSerializer(data=data_for_serializer, context={'request': request})
+    # Passo 2: Validação do Produto
+    try:
+        produto = Produto.objects.get(id=produto_id)
+    except Produto.DoesNotExist:
+        return Response(
+            {"erro": f"Produto com ID {produto_id} não encontrado."},
+            status=status.HTTP_404_NOT_FOUND
+        )
     
-    if serializer.is_valid():
-        try:
-            item = serializer.save()
-            print(f"DEBUG (View): Item {item.id} adicionado ao carrinho {item.carrinho.id}.")
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            print(f"ERRO CRÍTICO (adicionar_item_carrinho - save): {e}")
-            return Response({'success': False, 'message': f'Erro ao adicionar item: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+    # Validação de estoque (opcional, mas recomendado)
+    if produto.quantidade_estoque < quantidade_a_adicionar:
+        return Response(
+            {"erro": f"Estoque insuficiente para o produto '{produto.nome}'. Disponível: {produto.quantidade_estoque}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-    print('Erro no serializer (adicionar_item_carrinho - validação):', serializer.errors)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # Passo 3: Lógica de Adicionar/Atualizar o Item DIRETAMENTE NA VIEW
+    # Esta é a correção principal. Não usamos mais o ItemCarrinhoSerializer para criar.
+    item, created = ItemCarrinho.objects.get_or_create(
+        carrinho=carrinho,  # <-- Passamos o objeto carrinho válido que já buscamos
+        produto=produto,
+        defaults={'quantidade': quantidade_a_adicionar}
+    )
+
+    # Se o item não foi criado agora (já existia), apenas somamos a quantidade.
+    if not created:
+        item.quantidade += quantidade_a_adicionar
+        item.save()
+
+    # Passo 4: Retorno da Resposta
+    # Usamos o CarrinhoSerializer para retornar o carrinho completo e atualizado,
+    # que é o que o seu app Flutter espera para atualizar a UI corretamente.
+    serializer = CarrinhoSerializer(carrinho, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['PUT', 'DELETE'])
@@ -737,7 +757,7 @@ def finalizar_pedido(request, pedido_id):
     """
     try:
         pedido = Pedido.objects.get(id=pedido_id, usuario=request.user, status_pedido='Pendente')
-        pedido.status_pedido = 'Finalizado'
+        pedido.status_pedido = 'Enviado'  # Atualiza o status do pedido para 'Enviado'
         pedido.data_finalizacao = datetime.now()  # Define a data de finalização
         pedido.total = pedido.carrinho.total_valor()  # Atualiza o total do pedido com o valor do carrinho
         pedido.qr_code_pedido = str(pedido.pedido_id)  # Define o QR Code como o ID do pedido (ou outra lógica que você queira)
@@ -854,6 +874,3 @@ def deletar_pedido(request, pedido_id):
         
     except Pedido.DoesNotExist:
         return Response({'detail': 'Pedido não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-    
-
-    
