@@ -664,7 +664,7 @@ def adicionar_item_carrinho(request, carrinho_id):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@api_view(['PUT', 'DELETE'])
+@api_view(['PUT', 'PATCH', 'DELETE']) # ✅ CORREÇÃO: Adicione 'PATCH' aqui
 @permission_classes([IsAuthenticated])
 def item_carrinho_detail(request, pk):
     try:
@@ -676,20 +676,21 @@ def item_carrinho_detail(request, pk):
     if item.carrinho.usuario != request.user:
         return Response({'erro': 'Você não tem permissão para alterar este item.'}, status=status.HTTP_403_FORBIDDEN)
 
-    if request.method == 'PUT':
-        # ✅ CORREÇÃO AQUI: Adicione o `context={'request': request}`
-        # Isso garante que o serializer tenha acesso ao usuário logado para qualquer validação interna.
+    # A lógica para PUT e PATCH é a mesma quando usamos partial=True
+    if request.method == 'PUT' or request.method == 'PATCH':
+        # partial=True é essencial, pois permite atualizações parciais (só a quantidade)
         serializer = ItemCarrinhoSerializer(item, data=request.data, partial=True, context={'request': request})
         
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
-        # Se a validação falhar, os erros do serializer serão retornados
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
