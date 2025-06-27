@@ -6,7 +6,7 @@ from .views import (
     listar_fornecedores, criar_fornecedor, detalhar_fornecedor,
     editar_fornecedor, deletar_fornecedor,recuperar_senha,carrinho_list_create, carrinho_detail,
     adicionar_item_carrinho, item_carrinho_detail, meu_carrinho_aberto_detail,criar_pedido, listar_pedidos, detalhar_pedido,  deletar_pedido, finalizar_pedido
-    ,finalizar_carrinho, meus_pedidos
+    ,finalizar_carrinho, meus_pedidos,buscar_cardapio_dia
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -43,7 +43,7 @@ urlpatterns = [
     path('cardapios/cadastrar/', cadastrar_cardapio, name='cadastrar_cardapio'),
     path('cardapios/<int:id>/editar/', editar_cardapio, name='editar_cardapio'),
     path('cardapios/<int:id>/deletar/', deletar_cardapio, name='deletar_cardapio'),
-    path('cardapios/<str:data>/dia/', buscar_cardapio, name='buscar_cardapio_por_data'),
+    path('cardapios/<str:data>/dia/', buscar_cardapio_dia, name='buscar_cardapio_por_data'),
 
       # --- ROTAS DO CARRINHO DE COMPRAS ---
     path('carrinhos/', carrinho_list_create, name='carrinho-list-create'),
