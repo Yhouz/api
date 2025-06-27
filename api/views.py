@@ -320,20 +320,38 @@ def editar_produto(request, id):
     return Response({'success': False, 'errors': serializer.errors}, status=400)
 
 @api_view(['GET'])
-def listar_produtos(request, id):
+def listar_produtos(request): # <<<< CORREÇÃO AQUI: Removemos o 'id' dos parâmetros da função
     """
-    Lista todos os produtos ou um produto específico por ID.
-    Se o ID for fornecido, retorna apenas aquele produto.
-    Se não, retorna todos os produtos.
+    Lista produtos com base nos IDs fornecidos como parâmetro de query,
+    ou todos os produtos se nenhum ID for fornecido.
+    Ex: /api/produtos/?ids=1,2,3
     """
-    if id:
+    ids_param = request.query_params.get('ids') # Tenta obter o parâmetro 'ids' da query string
+
+    if ids_param:
         try:
-            produto = Produto.objects.get(id=id)
-            serializer = ProdutoSerializer(produto)
+            # Converte a string "1,2,3" em uma lista de inteiros [1, 2, 3]
+            # Filtra strings vazias ou não-numéricas para evitar erros
+            produto_ids = [int(id_str.strip()) for id_str in ids_param.split(',') if id_str.strip().isdigit()]
+            
+            if not produto_ids:
+                return Response({
+                    "success": False, 
+                    "message": "Nenhum ID de produto válido fornecido no parâmetro 'ids'."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Filtra os produtos cujos IDs estão na lista 'produto_ids'
+            produtos = Produto.objects.filter(id__in=produto_ids)
+            serializer = ProdutoSerializer(produtos, many=True)
             return Response(serializer.data)
-        except Produto.DoesNotExist:
-            return Response({'success': False, 'message': 'Produto não encontrado.'}, status=404)
+
+        except ValueError:
+            return Response({
+                "success": False, 
+                "message": "Formato de ID inválido. Use números separados por vírgulas (ex: ?ids=1,2,3)."
+            }, status=status.HTTP_400_BAD_REQUEST)
     else:
+        # Se nenhum parâmetro 'ids' for fornecido, retorna todos os produtos
         produtos = Produto.objects.all()
         serializer = ProdutoSerializer(produtos, many=True)
         return Response(serializer.data)
