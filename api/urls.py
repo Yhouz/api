@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     api_login, api_cadastro, buscar_cardapio,
     buscar_produto, cadastrar_cardapio, deletar_cardapio, deletar_produto, detalhar_pedido_finalizar, editar_cardapio, editar_produto, cadastro_produto,
-    cadastro_funcionario, login_funcionario,
+    cadastro_funcionario, listar_produtos, login_funcionario,
     listar_fornecedores, criar_fornecedor, detalhar_fornecedor,
     editar_fornecedor, deletar_fornecedor,recuperar_senha,carrinho_list_create, carrinho_detail,
     adicionar_item_carrinho, item_carrinho_detail, meu_carrinho_aberto_detail,criar_pedido, listar_pedidos, detalhar_pedido,  deletar_pedido, finalizar_pedido
@@ -28,7 +28,7 @@ urlpatterns = [
     path('produtos/<int:id>/', buscar_produto),
     path('produtos/editar/<int:id>/', editar_produto),
     path('produtos/deletar/<int:id>/',deletar_produto),
-    path('produtos/<int:pk>/buscar/', buscar_produto),
+    path('produtos/',listar_produtos, name='listar_produtos_com_filtro'),
     
     # Fornecedores
     path('fornecedores/', listar_fornecedores, name='listar_fornecedores'),
