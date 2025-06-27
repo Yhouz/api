@@ -528,36 +528,42 @@ def buscar_cardapio(request, id=None): # Keep 'id=None' if you want to keep the 
         serializer = CardapioSerializer(cardapios, many=True)
         return Response(serializer.data)
 @api_view(['GET'])
-def buscar_cardapio_dia(request, data):
+def buscar_cardapio_dia(request, data): # <<< A função espera 'data' da URL
     """
-    Busca o cardápio do dia atual.
-    Retorna o primeiro cardápio encontrado para a data de hoje.
-    Exemplo de uso: /api/cardapios/dia/
+    Busca o cardápio para uma data específica fornecida na URL.
+    O formato da data esperado é YYYY-MM-DD.
+    Exemplo de uso: /api/cardapios/2025-06-27/dia/
     """
-    data_hoje = datetime.now().date() # Pega a data atual (somente dia, mês, ano)
-
     try:
-        # Tenta encontrar um cardápio cuja 'data' seja igual à data de hoje.
-        # .first() pega o primeiro resultado se houver múltiplos para o mesmo dia.
-        cardapio = Cardapio.objects.filter(data=data_hoje).first()
+        # ✅ CORREÇÃO AQUI: Converte a string de data (da URL) para um objeto date
+        # O formato esperado para validação é "%Y-%m-%d" (AAAA-MM-DD)
+        data_para_buscar = datetime.strptime(data, "%Y-%m-%d").date()
+    except ValueError:
+        # Retorna um erro 400 se o formato da data estiver incorreto
+        return Response(
+            {"success": False, "message": "Formato de data inválido. Use YYYY-MM-DD."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Tenta encontrar um cardápio cuja 'data' seja igual à data convertida
+        cardapio = Cardapio.objects.filter(data=data_para_buscar).first()
 
         if cardapio:
-            # Serializa o cardápio encontrado
             serializer = CardapioSerializer(cardapio)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            # Se nenhum cardápio for encontrado para a data de hoje
+            # Se nenhum cardápio for encontrado para a data específica
             return Response(
-                {"success": False, "message": "Nenhum cardápio disponível para o dia de hoje."},
+                {"success": False, "message": f"Nenhum cardápio disponível para a data {data}."},
                 status=status.HTTP_404_NOT_FOUND
             )
     except Exception as e:
-        # Captura qualquer outro erro que possa ocorrer durante a busca
+        # Captura qualquer outro erro que possa ocorrer durante a busca no DB
         return Response(
-            {"success": False, "message": f"Erro interno ao buscar cardápio do dia: {e}"},
+            {"success": False, "message": f"Erro interno ao buscar cardápio: {e}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 # 🔹 Editar cardápio
 @api_view(['PUT', 'PATCH'])
 def editar_cardapio(request, id):
