@@ -43,6 +43,7 @@ urlpatterns = [
     path('cardapios/cadastrar/', cadastrar_cardapio, name='cadastrar_cardapio'),
     path('cardapios/<int:id>/editar/', editar_cardapio, name='editar_cardapio'),
     path('cardapios/<int:id>/deletar/', deletar_cardapio, name='deletar_cardapio'),
+    path('cardapios/<str:data>/dia/', buscar_cardapio, name='buscar_cardapio_por_data'),
 
       # --- ROTAS DO CARRINHO DE COMPRAS ---
     path('carrinhos/', carrinho_list_create, name='carrinho-list-create'),

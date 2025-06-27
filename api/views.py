@@ -320,18 +320,18 @@ def editar_produto(request, id):
     return Response({'success': False, 'errors': serializer.errors}, status=400)
 
 @api_view(['GET'])
-def listar_produtos(request): # <<<< CORREÇÃO AQUI: Removemos o 'id' dos parâmetros da função
+def listar_produtos(request): # Esta função responde a /api/produtos/
     """
-    Lista produtos com base nos IDs fornecidos como parâmetro de query,
-    ou todos os produtos se nenhum ID for fornecido.
+    Lista produtos com base nos IDs fornecidos como parâmetro de query 'ids'.
     Ex: /api/produtos/?ids=1,2,3
     """
-    ids_param = request.query_params.get('ids') # Tenta obter o parâmetro 'ids' da query string
+    # Tenta obter o parâmetro 'ids' da query string
+    ids_param = request.query_params.get('ids')
 
     if ids_param:
         try:
             # Converte a string "1,2,3" em uma lista de inteiros [1, 2, 3]
-            # Filtra strings vazias ou não-numéricas para evitar erros
+            # .strip() para remover espaços, .isdigit() para validar antes de converter
             produto_ids = [int(id_str.strip()) for id_str in ids_param.split(',') if id_str.strip().isdigit()]
             
             if not produto_ids:
@@ -341,7 +341,8 @@ def listar_produtos(request): # <<<< CORREÇÃO AQUI: Removemos o 'id' dos parâ
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Filtra os produtos cujos IDs estão na lista 'produto_ids'
-            produtos = Produto.objects.filter(id__in=produto_ids)
+            produtos = Produto.objects.filter(id__in=produto_ids) 
+            
             serializer = ProdutoSerializer(produtos, many=True)
             return Response(serializer.data)
 
@@ -352,9 +353,11 @@ def listar_produtos(request): # <<<< CORREÇÃO AQUI: Removemos o 'id' dos parâ
             }, status=status.HTTP_400_BAD_REQUEST)
     else:
         # Se nenhum parâmetro 'ids' for fornecido, retorna todos os produtos
+        # Cuidado: se esta rota deve *sempre* filtrar, você pode retornar um erro 400 aqui.
         produtos = Produto.objects.all()
         serializer = ProdutoSerializer(produtos, many=True)
         return Response(serializer.data)
+
 
 #---------------------------------
 
@@ -524,7 +527,36 @@ def buscar_cardapio(request, id=None): # Keep 'id=None' if you want to keep the 
         cardapios = Cardapio.objects.all()
         serializer = CardapioSerializer(cardapios, many=True)
         return Response(serializer.data)
+@api_view(['GET'])
+def buscar_cardapio_dia(request, data):
+    """
+    Busca o cardápio do dia atual.
+    Retorna o primeiro cardápio encontrado para a data de hoje.
+    Exemplo de uso: /api/cardapios/dia/
+    """
+    data_hoje = datetime.now().date() # Pega a data atual (somente dia, mês, ano)
 
+    try:
+        # Tenta encontrar um cardápio cuja 'data' seja igual à data de hoje.
+        # .first() pega o primeiro resultado se houver múltiplos para o mesmo dia.
+        cardapio = Cardapio.objects.filter(data=data_hoje).first()
+
+        if cardapio:
+            # Serializa o cardápio encontrado
+            serializer = CardapioSerializer(cardapio)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            # Se nenhum cardápio for encontrado para a data de hoje
+            return Response(
+                {"success": False, "message": "Nenhum cardápio disponível para o dia de hoje."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    except Exception as e:
+        # Captura qualquer outro erro que possa ocorrer durante a busca
+        return Response(
+            {"success": False, "message": f"Erro interno ao buscar cardápio do dia: {e}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 # 🔹 Editar cardápio
 @api_view(['PUT', 'PATCH'])
