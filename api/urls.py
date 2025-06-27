@@ -1,11 +1,12 @@
 from django.urls import path
 from .views import (
     api_login, api_cadastro, buscar_cardapio,
-    buscar_produto, cadastrar_cardapio, deletar_cardapio, deletar_produto, editar_cardapio, editar_produto, cadastro_produto,
+    buscar_produto, cadastrar_cardapio, deletar_cardapio, deletar_produto, detalhar_pedido_finalizar, editar_cardapio, editar_produto, cadastro_produto,
     cadastro_funcionario, login_funcionario,
     listar_fornecedores, criar_fornecedor, detalhar_fornecedor,
     editar_fornecedor, deletar_fornecedor,recuperar_senha,carrinho_list_create, carrinho_detail,
     adicionar_item_carrinho, item_carrinho_detail, meu_carrinho_aberto_detail,criar_pedido, listar_pedidos, detalhar_pedido,  deletar_pedido, finalizar_pedido
+    ,finalizar_carrinho, meus_pedidos
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -50,6 +51,7 @@ urlpatterns = [
     path('carrinhos/meu-carrinho/', meu_carrinho_aberto_detail, name='meu-carrinho-detail'),
 
     path('carrinhos/<int:pk>/', carrinho_detail, name='carrinho-detail-by-pk'),
+    path('carrinhos/<int:carrinho_id>/finalizar/', finalizar_carrinho, name='finalizar-carrinho'),
 
     # --- ROTAS DOS ITENS DO CARRINHO ---
     path('carrinhos/<int:carrinho_id>/itens/', adicionar_item_carrinho, name='adicionar-item'),
@@ -63,10 +65,12 @@ urlpatterns = [
 
     # Pedido
     path('pedidos/', listar_pedidos, name='listar_pedidos'),
+    path('pedidos/usuario/<int:id>', listar_pedidos, name='listar_pedidos'),
     path('pedidos/<int:id>/', detalhar_pedido, name='detalhar_pedido'),
     path('pedidos/criar/', criar_pedido, name='criar_pedido'),  
     path('pedidos/<int:id>/deletar/', deletar_pedido, name='deletar_pedido'),
     path('pedidos/<int:id>/finalizar/', finalizar_pedido, name='finalizar_pedido'),
-    
+    path('pedidos/meus-pedidos/', meus_pedidos, name='meus-pedidos'),
+    path('pedidos/<int:id>/detalhar/', detalhar_pedido_finalizar, name='detalhar_pedido_finalizar'),
     
 ]

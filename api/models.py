@@ -223,7 +223,7 @@ STATUS_ped = (
 class Pedido(models.Model):
     pedido_id = models.AutoField(primary_key=True)
     usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name='pedidos')
-    carrinho = models.ForeignKey(Carrinho, on_delete=models.CASCADE, related_name='pedido', unique=True)
+    carrinho = models.OneToOneField(Carrinho, on_delete=models.CASCADE, related_name='pedido')
     data_pedido = models.DateTimeField(auto_now_add=True)
     total = models.DecimalField(max_digits=10, decimal_places=2)
     status_pedido = models.CharField(max_length=20, choices= STATUS_ped)  # Ex: Pendente, Em Preparação, Entregue
@@ -236,6 +236,7 @@ class PedidoItem(models.Model):
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='itens')
     produto = models.ForeignKey(Produto, on_delete=models.CASCADE)
     quantidade = models.PositiveIntegerField(default=1)
+    valor_item = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Valor do item no momento da compra
 
     def __str__(self):
         return f"{self.quantidade}x {self.produto.nome} - Pedido {self.pedido.id}"
@@ -243,3 +244,13 @@ class PedidoItem(models.Model):
     def subtotal(self):
         return self.quantidade * self.produto.preco
 
+
+class Pagamento(models.Model):
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='pagamentos')
+    data_pagamento = models.DateTimeField(auto_now_add=True)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    metodo_pagamento = models.CharField(max_length=50)  # Ex: Cartão de Crédito, Dinheiro, Pix
+    status_pagamento = models.CharField(max_length=20, choices=(('pendente', 'Pendente'), ('pago', 'Pago')), default='pendente')
+
+    def __str__(self):
+        return f"Pagamento {self.id} - Pedido {self.pedido.id} - {self.metodo_pagamento}"

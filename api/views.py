@@ -12,7 +12,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 #from drf_spectacular.utils import extend_schema
 
 
-from .models import Cardapio, Carrinho, Funcionario, ItemCarrinho, Usuario, Produto, Fornecedor, Pedido
+from django.db import transaction
+
+from .models import Cardapio, Carrinho, Funcionario, ItemCarrinho, Usuario, Produto, Fornecedor, Pedido, PedidoItem
 
 
 
@@ -748,64 +750,113 @@ def finalizar_carrinho(request, carrinho_id):
 # FINALIZAR PEDIDO
 # -------------------------------
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def finalizar_pedido(request, pedido_id):
+#@permission_classes([AllowAny]) # Permite acesso público
+@transaction.atomic
+def finalizar_pedido(request, id):
     """
-    Finaliza um pedido específico do usuário autenticado.
-    - Se o pedido for encontrado e não estiver finalizado, marca como finalizado.
-    - Retorna 200 OK com os dados do pedido atualizado.
-    - Se não encontrar o pedido, retorna 404 Not Found.
+    Finaliza um pedido específico. Endpoint público.
     """
     try:
-        pedido = Pedido.objects.get(id=pedido_id, usuario=request.user, status_pedido='Pendente')
-        pedido.status_pedido = 'Enviado'  # Atualiza o status do pedido para 'Enviado'
-        pedido.data_finalizacao = datetime.now()  # Define a data de finalização
-        pedido.total = pedido.carrinho.total_valor()  # Atualiza o total do pedido com o valor do carrinho
-        pedido.qr_code_pedido = str(pedido.pedido_id)  # Define o QR Code como o ID do pedido (ou outra lógica que você queira)
+        pedido = Pedido.objects.get(pedido_id=id, status_pedido='Pendente')
+
+        # Atualiza os campos do pedido
+        pedido.status_pedido = 'Entregue'
+        pedido.data_finalizacao = datetime.now()
+        pedido.total = pedido.carrinho.total_valor()
         pedido.save()
 
+        # Retorna o pedido atualizado
         serializer = PedidoSerializer(pedido, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
-        
-    except Pedido.DoesNotExist:
-        return Response({'detail': 'Pedido não encontrado ou já finalizado.'}, status=status.HTTP_404_NOT_FOUND)
 
+    except Pedido.DoesNotExist:
+        return Response(
+            {'detail': 'Pedido não encontrado ou já foi finalizado.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+        
+    # ✅ --- ESTE BLOCO É ESSENCIAL E VAI RESOLVER O CRASH ---
+    # Ele captura QUALQUER outro erro que possa acontecer dentro do 'try'
+    except Exception as e:
+        # Imprime o erro real no seu console do Django para você ver o que é
+        print(f"!!! ERRO INESPERADO AO FINALIZAR PEDIDO: {e}") 
+        
+        # Envia uma resposta de erro para o Flutter em vez de quebrar
+        return Response(
+            {'detail': f'Ocorreu um erro interno no servidor: {e}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 # -------------------------------
 # PEDIDO    
 # -------------------------------
 
 @api_view(['POST'])
+@transaction.atomic  # Perfeito! Garante que toda a operação seja atômica.
 @permission_classes([IsAuthenticated])
 def criar_pedido(request):
-    """
-    Cria um novo pedido a partir do carrinho em aberto do usuário autenticado.
-    - Se o carrinho em aberto for encontrado, cria o pedido e finaliza o carrinho.
-    - Retorna 201 Created com os dados do pedido.
-    - Se não encontrar o carrinho, retorna 404 Not Found.
-    """
+
+    carrinho_id = request.data.get('carrinho_id')
+    total_recebido = request.data.get('total') # É uma boa prática recalcular o total no backend
+
+    if not carrinho_id:
+        return Response({'detail': 'O campo carrinho_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        # Busca o carrinho em aberto do usuário
-        carrinho = Carrinho.objects.get(usuario=request.user, finalizado=False)
-        
-        # Cria o pedido com os dados do carrinho
+        carrinho = Carrinho.objects.get(id=carrinho_id, usuario=request.user, finalizado=False)
+    except Carrinho.DoesNotExist:
+        return Response({'detail': 'Carrinho não encontrado, inválido ou já finalizado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Pega os itens do carrinho. Ajuste 'carrinho.itens.all()' se o nome da sua relação for outro.
+    # Ex: carrinho.carrinhoitem_set.all() se você não definiu um related_name.
+    itens_carrinho = carrinho.itens.all()
+    if not itens_carrinho.exists():
+        return Response({'detail': 'Não é possível criar um pedido a partir de um carrinho vazio.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # 1. Cria o objeto Pedido
         pedido = Pedido.objects.create(
             usuario=request.user,
             carrinho=carrinho,
-            total=carrinho.total_valor(),  # Calcula o total do carrinho
-            status_pedido='Pendente'  # Define o status inicial como 'Pendente'
+            total=total_recebido, # Lembre-se que o total pode ser recalculado aqui para segurança
+            status_pedido='Pendente',
+            #qr_code_pedido=str(pedido.id),
         )
+        pedido.qr_code_pedido = str(pedido.pedido_id)
+        pedido.save()  # Salva o pedido novamente com o campo QR code preenchido
+
+        # 2. <<< LÓGICA ADICIONADA AQUI >>>
+        # Copia os itens do carrinho para a tabela PedidoItem
         
-        # Marca o carrinho como finalizado
+        itens_para_criar = []
+        for item_carrinho in itens_carrinho:
+            itens_para_criar.append(
+                PedidoItem(
+                    pedido=pedido,
+                    produto=item_carrinho.produto,
+                    quantidade=item_carrinho.quantidade,
+                    valor_item=item_carrinho.produto.preco * item_carrinho.quantidade,  # Calcula o valor do item
+                    # DICA: Se o preço do produto pode mudar, é uma ótima prática
+                    # "congelar" o preço no momento da venda, salvando-o aqui também.
+                    # Ex: preco_no_momento_da_venda = item_carrinho.produto.preco
+                )
+            )
+        
+        # 3. Salva todos os novos PedidoItem no banco de dados de uma só vez.
+        PedidoItem.objects.bulk_create(itens_para_criar)
+
+        # 4. Finaliza o carrinho
         carrinho.finalizado = True
         carrinho.save()
-        
-        serializer = PedidoSerializer(pedido, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
-    except Carrinho.DoesNotExist:
-        return Response({'detail': 'Carrinho não encontrado ou já finalizado.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Serializa e retorna a resposta
+        serializer = PedidoSerializer(pedido, context={'request': request})
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        # O @transaction.atomic vai desfazer a criação do pedido se um erro ocorrer aqui.
+        return Response({'detail': f'Ocorreu um erro interno ao processar o pedido: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -824,15 +875,15 @@ def listar_pedidos(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def detalhar_pedido(request, pedido_id):
+#@permission_classes([IsAuthenticated])
+def detalhar_pedido(request, id):
     """
     Detalha um pedido específico do usuário autenticado.
     - Se o pedido for encontrado, retorna 200 OK com os dados do pedido.
     - Se não encontrar o pedido, retorna 404 Not Found.
     """
     try:
-        pedido = Pedido.objects.get(id=pedido_id, usuario=request.user)
+        pedido = Pedido.objects.get(pedido_id=id, usuario=request.user)
         serializer = PedidoSerializer(pedido, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
         
@@ -875,3 +926,43 @@ def deletar_pedido(request, pedido_id):
         
     except Pedido.DoesNotExist:
         return Response({'detail': 'Pedido não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+# meus pedidos
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def meus_pedidos(request):
+    """
+    Lista todos os pedidos do usuário logado
+    O usuário é identificado automaticamente pelo token JWT
+    """
+    try:
+        # Busca todos os pedidos do usuário logado
+        pedidos = Pedido.objects.filter(usuario=request.user).order_by('-id')
+        
+        # Serializa os dados
+        serializer = PedidoSerializer(pedidos, many=True)
+        
+        return Response(serializer.data, status=200)
+        
+    except Exception as e:
+        return Response(
+            {'error': f'Erro ao buscar pedidos: {str(e)}'}, 
+            status=500
+        )
+
+@api_view(['GET'])
+#@permission_classes([IsAuthenticated])
+def detalhar_pedido_finalizar(request, id):
+    """
+    Detalha um pedido específico do usuário autenticado.
+    - Se o pedido for encontrado, retorna 200 OK com os dados do pedido.
+    - Se não encontrar o pedido, retorna 404 Not Found.
+    """
+    try:
+        pedido = Pedido.objects.get(pedido_id=id)
+        serializer = PedidoSerializer(pedido, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    except Pedido.DoesNotExist:
+        return Response({'detail': 'Pedido não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+    

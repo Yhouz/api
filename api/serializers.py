@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cardapio, Carrinho, ItemCarrinho, Usuario, Funcionario, Produto, Fornecedor, Pedido, PedidoItem
+from .models import Cardapio, Carrinho, ItemCarrinho, Pagamento, Usuario, Funcionario, Produto, Fornecedor, Pedido, PedidoItem
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -138,24 +138,44 @@ class CarrinhoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Usuário autenticado não encontrado no contexto do serializer para criar o carrinho.")
 
         return super().create(validated_data)
-    
+
+
 class PedidoSerializer(serializers.ModelSerializer):
-    itens = ItemCarrinhoSerializer(many=True, read_only=True)
+ 
+    itens = ItemCarrinhoSerializer(source='carrinho.itens', many=True, read_only=True)
     total_itens = serializers.SerializerMethodField()
     total_valor = serializers.SerializerMethodField()
 
     class Meta:
         model = Pedido
-        fields = ['id', 'usuario', 'carrinho', 'data_pedido', 'status', 'itens', 'total_itens', 'total_valor']
-        read_only_fields = ['id', 'data_pedido', 'status', 'itens', 'total_itens', 'total_valor']
+       
+        fields = [
+            'pedido_id', 'usuario', 'carrinho', 'data_pedido', 'status_pedido', 'total',
+            'qr_code_pedido', 'itens', 'total_itens', 'total_valor',
+        ]
+        read_only_fields = [
+            'pedido_id', 'usuario', 'data_pedido', 'status_pedido',
+            'itens', 'total_itens', 'total_valor',
+        ]
+
+    def to_representation(self, instance):
+       
+        try:
+            representation = super().to_representation(instance)
+           
+            return representation
+        except Exception as e:
+            
+            raise e
 
     def get_total_itens(self, obj):
-        return obj.carrinho.total_itens()
+        if obj.carrinho:
+            return obj.carrinho.total_itens()
+        return 0
 
     def get_total_valor(self, obj):
-        return obj.carrinho.total_valor()
-
-
+        return obj.total
+    
 class PedidoItemSerializer(serializers.ModelSerializer):
     produto = ProdutoSerializer(read_only=True)
     produto_id = serializers.IntegerField(write_only=True)
@@ -168,3 +188,8 @@ class PedidoItemSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['produto_id'] = validated_data.pop('produto_id')
         return super().create(validated_data)
+
+class PagamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pagamento
+        fields = ['id', 'data_pagamento', 'valor', 'metodo_pagamento', 'status_pagamento']
