@@ -319,6 +319,27 @@ def editar_produto(request, id):
         })
     return Response({'success': False, 'errors': serializer.errors}, status=400)
 
+@api_view(['GET'])
+def listar_produtos(request, id):
+    """
+    Lista todos os produtos ou um produto específico por ID.
+    Se o ID for fornecido, retorna apenas aquele produto.
+    Se não, retorna todos os produtos.
+    """
+    if id:
+        try:
+            produto = Produto.objects.get(id=id)
+            serializer = ProdutoSerializer(produto)
+            return Response(serializer.data)
+        except Produto.DoesNotExist:
+            return Response({'success': False, 'message': 'Produto não encontrado.'}, status=404)
+    else:
+        produtos = Produto.objects.all()
+        serializer = ProdutoSerializer(produtos, many=True)
+        return Response(serializer.data)
+
+#---------------------------------
+
 @api_view(['DELETE'])
 def deletar_produto(request, id):
     produto = get_object_or_404(Produto, id=id)

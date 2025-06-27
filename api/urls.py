@@ -28,6 +28,7 @@ urlpatterns = [
     path('produtos/<int:id>/', buscar_produto),
     path('produtos/editar/<int:id>/', editar_produto),
     path('produtos/deletar/<int:id>/',deletar_produto),
+    path('produtos/<int:id>/buscar/', buscar_produto),
     
     # Fornecedores
     path('fornecedores/', listar_fornecedores, name='listar_fornecedores'),
@@ -72,5 +73,6 @@ urlpatterns = [
     path('pedidos/<int:id>/finalizar/', finalizar_pedido, name='finalizar_pedido'),
     path('pedidos/meus-pedidos/', meus_pedidos, name='meus-pedidos'),
     path('pedidos/<int:id>/detalhar/', detalhar_pedido_finalizar, name='detalhar_pedido_finalizar'),
+  
     
 ]

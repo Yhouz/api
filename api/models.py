@@ -144,7 +144,7 @@ class Produto(models.Model):
     unidade = models.CharField(max_length=10, null=True, blank=True)
 
     imagem = models.ImageField(upload_to='produtos/', blank=True, null=True)
-   
+    
     
 
     def __str__(self):
@@ -179,10 +179,14 @@ class Cardapio(models.Model):
     imagem = models.ImageField(upload_to='cardapios/', blank=True, null=True)
     # O CAMPO CHAVE: Certifique-se de que é um ManyToManyField
     produtos = models.ManyToManyField(Produto)
+    #ativo = models.BooleanField(default=True)  # Para saber se o cardápio está ativo ou não
+
     # ... outros campos do Cardapio
 
     def __str__(self):
         return f"{self.nome} ({self.data})"
+    
+
 
 #Carrinho de Compras
 
