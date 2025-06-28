@@ -8,11 +8,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-fd_cs#2m%^sqv8dk%^2*bgkw%#zvylmy=ymph!zt@wjyp=psuk'
 
-DEBUG = True
+# ## MODIFICADO ##: Para produção no Render, é recomendado que DEBUG seja False.
+# Ele será True localmente se a variável de ambiente DEBUG_VALUE não estiver definida ou for 'true'.
+DEBUG = os.environ.get('DEBUG_VALUE', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
     ALLOWED_HOSTS.append(os.environ.get('RENDER_EXTERNAL_HOSTNAME'))
+# ## MODIFICADO ##: Para garantir que o Render.com funcione corretamente em produção,
+# adicione o hostname do Render aos ALLOWED_HOSTS para o modo DEBUG=False também.
+if not DEBUG and os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ.get('RENDER_EXTERNAL_HOSTNAME'))
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -25,12 +32,12 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'corsheaders',
     'api', # Seu custom app
-    'storages',
+    'storages', # Mantenha 'storages' aqui
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # MOVIDO PARA O TOPO
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -93,28 +100,79 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# --- STATIC AND MEDIA FILES CONFIGURATION ---
+# --- STATIC AND MEDIA FILES CONFIGURATION (MODIFIED) ---
+
+# Configurações para AWS S3
+# Certifique-se de definir estas variáveis de ambiente no Render!
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+# ## MODIFICADO ##: Use os.environ.get para a região também
+AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+
+# ## MODIFICADO ##: Calcule AWS_S3_CUSTOM_DOMAIN apenas se o nome do bucket estiver disponível
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com' if AWS_STORAGE_BUCKET_NAME else None
+
+# Definições de URL e ROOT para STATIC
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Onde WhiteNoise vai servir
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Onde os uploads de usuário serão salvos
+# Definições de URL e ROOT para MEDIA (Arquivos enviados por usuários)
+# ## MODIFICADO ##: Lógica condicional para MEDIA_URL e MEDIA_ROOT
+if DEBUG:
+    # Em ambiente de desenvolvimento, use o sistema de arquivos local
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+else:
+    # Em produção, use o S3. MEDIA_ROOT não é usado com S3.
+    if AWS_S3_CUSTOM_DOMAIN:
+        # ## MODIFICADO ##: Se seus arquivos no S3 estão em 'media/produtos/',
+        # e o campo `imagem` do seu modelo retorna `produtos/nome_da_imagem.jpg`,
+        # então o `MEDIA_URL` base deve ser a raiz do seu bucket.
+        # Caso contrário, se `imagem` retorna `/produtos/nome_da_imagem.jpg` (com barra inicial),
+        # e você quer o `media/` no S3, mantenha o `/media/` aqui.
+        # Para o caso `https://None.s3.amazonaws.com/media/produtos/...`, o seu Django
+        # está adicionando `/media/` no caminho do S3. Então, mantenha `/media/` aqui.
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+    else:
+        # Fallback se as variáveis de ambiente S3 não estiverem definidas em produção
+        # Isso pode acontecer se você esquecer de definir as variáveis no Render.
+        # As imagens não carregarão, mas o Django não quebrará.
+        MEDIA_URL = '/media/'
+        MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Configurações para WhiteNoise usando a nova sintaxe do Django 4.x/5.x
+
+# ## MODIFICADO ##: Configuração consolidada de STORAGES para Django 4.0+
 STORAGES = {
-    "default": { # Para arquivos de mídia (uploads)
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    "default": { # Para arquivos de mídia (uploads de usuário)
+        # ## MODIFICADO ##: Usa S3Boto3Storage para uploads de usuário em produção.
+        # Em DEBUG, o Django usará o FileSystemStorage definido por MEDIA_ROOT.
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage" if not DEBUG else "django.core.files.storage.FileSystemStorage",
+        # Adicione estas configurações para o S3Boto3Storage
+        "OPTIONS": {
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "region_name": AWS_S3_REGION_NAME,
+            "access_key_id": AWS_ACCESS_KEY_ID,
+            "secret_access_key": AWS_SECRET_ACCESS_KEY,
+            "custom_domain": AWS_S3_CUSTOM_DOMAIN,
+            "location": "media", # Isso vai criar uma pasta 'media/' dentro do seu bucket S3
+            # Se você já tem CORS configurado no bucket S3, pode ser necessário especificar headers
+            # "file_overwrite": False, # Evita sobrescrever arquivos com o mesmo nome (geralmente bom)
+        },
     },
     "staticfiles": { # Para arquivos estáticos (CSS, JS, etc.)
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
-# --- END STATIC AND MEDIA FILES CONFIGURATION ---
 
+# ## REMOVER ##: Esta linha é redundante e pode causar conflito com o dicionário STORAGES.
+# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# --- END STATIC AND MEDIA FILES CONFIGURATION ---
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True # ## AVISO DE SEGURANÇA ##: Em produção, considere restringir para domínios específicos.
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -126,7 +184,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-  
+
 }
 
 SIMPLE_JWT = {
@@ -136,23 +194,13 @@ SIMPLE_JWT = {
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'ALGORITHM': 'HS256',
 }
-# settings.py
 AUTH_USER_MODEL = 'api.Usuario' # Certifique-se que 'api' é o nome do seu app
 
-# ...
-# Configurações para AWS S3 (exemplo com django-storages)
-# Certifique-se de definir estas variáveis de ambiente no Render!
-AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-AWS_S3_REGION_NAME = 'us-east-1' # Sua região do S3
-AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com' # Ou seu CDN se usar um
-
-# Define o sistema de arquivos de armazenamento padrão para arquivos de mídia
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-# Se você tiver um diretório 'static' separado no S3, defina isso também
-# STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
-
-# O URL base para arquivos de mídia apontará para o S3
-MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/' # IMPORTANTE! Este será o prefixo real no Flutter
+# ## REMOVER ##: Esta parte está duplicada da seção de STATIC AND MEDIA FILES CONFIGURATION.
+# AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+# AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+# AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
+# AWS_S3_REGION_NAME = 'us-east-1' # Sua região do S3
+# AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com' # Ou seu CDN se usar um
+# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+# MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
