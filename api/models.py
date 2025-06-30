@@ -133,19 +133,23 @@ class Funcionario(models.Model):
     
 class Produto(models.Model):
     nome = models.CharField(max_length=100)
-    descricao = models.TextField(blank=True)
+    descricao = models.TextField(blank=True, null=True) # Adicionado null=True para consistência
     preco = models.DecimalField(max_digits=10, decimal_places=2)
-    quantidade_estoque = models.IntegerField()
-    categoria = models.CharField(max_length=50)
+    quantidade_estoque = models.IntegerField(default=0) # Adicionado um valor padrão
+
+    # Escolha UMA das definições de categoria e remova a outra
+    categoria = models.CharField(max_length=50, null=True, blank=True) 
+
     data_cadastro = models.DateTimeField(auto_now_add=True)
-    categoria = models.CharField(max_length=20, null=True, blank=True )
-    custo = models.CharField(max_length=10, null=True, blank=True)
-    margem = models.CharField(max_length=10, null=True, blank=True)
+    
+    # Sugestão: Usar DecimalField para valores monetários/numéricos
+    custo = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    margem = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    
     unidade = models.CharField(max_length=10, null=True, blank=True)
 
+    # Campo de imagem está correto
     imagem = models.ImageField(upload_to='produtos/', blank=True, null=True)
-    
-    
 
     def __str__(self):
         return self.nome
